@@ -15,3 +15,8 @@ run: build
 release: clean
 	mkdir -p ${OUTPUT}/release
 	go build -ldflaggs="-s -w -X" -o ${OUTPUT}/release/${BINARY_NAME}
+
+# Utilities
+multicaster:
+	mkdir -p ${OUTPUT}
+	go build -o ${OUTPUT}/multicaster ./cmd/multicaster
