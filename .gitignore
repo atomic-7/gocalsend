@@ -1,0 +1,17 @@
+# Binaries
+gocalsend
+gclsnd
+
+# Build artifacts
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries from go test -c
+*.test
+
+# nohup logs
+nohup.*
