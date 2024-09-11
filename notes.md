@@ -10,6 +10,7 @@ Just the same as the gui version, settings are stored in `settings.json`
 - Incoming: Port 53317
 ### Multicast
 - Default multicast group is 224.0.0.0/24
+- multicast group on my phone is 224.0.0.167/24
 - default multicast port: 53317
 Multicast only targets clients that have subscribed to a multicast group as opposed to a 
 broadcast that is sent to every client in the network

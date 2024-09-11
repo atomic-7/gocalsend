@@ -11,7 +11,7 @@ func main() {
 		log.Fatal("Error getting interface:", err)
 	}
 	network := "udp4"
-	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 0), Port: 53317}
+	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 	mcgroup, err := net.ListenMulticastUDP(network, iface, multicastAddr)
 	if err != nil {
 		log.Fatal("Error connecting to multicast group", err)
