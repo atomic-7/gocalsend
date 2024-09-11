@@ -11,8 +11,6 @@ Run for a development build with debug symbols:
 ## Related work
 - [protocol](https://github.com/localsend/protocol) Protocol documentation
 ### Alternative implementations
-Featureful rust implementation
-- [localsend-rs](https://github.com/zpp0196/localsend-rs)
-A basic go implementation, check the docs folder for the english readme
-- [go-localsend](https://github.com/meowrain/localsend-go)
+- [localsend-rs](https://github.com/zpp0196/localsend-rs) Featureful rust implementation
+- [go-localsend](https://github.com/meowrain/localsend-go) A basic go implementation, check the docs folder for the english readme
 

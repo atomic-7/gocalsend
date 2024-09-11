@@ -1,5 +1,9 @@
 # Notes
 
+## Networking
+The godocs of the "net" package have a function ListenMulticastUDP.
+They also mention https://pkg.go.dev/golang.org/x/net/ipv4 for more involved use cases, might have to take a look at this
+
 ## Configuration
 Just the same as the gui version, settings are stored in `settings.json` 
 ## Protocol
