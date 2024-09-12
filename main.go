@@ -43,6 +43,14 @@ func main() {
 				log.Fatal("Error reading udp packet", err)
 			} else {
 				log.Printf("[%s]: %s", from.String(), string(buf))
+				info := &PeerInfo{}
+				info.IP = from.IP
+				err = json.Unmarshal(buf[:n], info)	// need to specify the number of bytes read here!
+				if err != nil {
+					log.Printf("buf: %v", buf[0:400])
+					log.Fatal("Error unmarshaling json: ", err)
+				}
+				log.Printf("alias: %s", info.Alias)
 			}
 		} else {
 			log.Println("Received empty udp packet?")
