@@ -1,20 +1,34 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net"
 )
 
+type PeerInfo struct {
+	Alias       string `json:"alias"`
+	Version     string `json:"version"`
+	DeviceModel string `json:"deviceModel"` // nullable -> ""
+	DeviceType  string `json:"deviceType"`
+	// mobile | desktop | web | headless | server | ""
+	Fingerprint string `json:"fingerprint"`
+	Port        int    `json:"port"`
+	Protocol    string `json:"protocol"` // http | https
+	Download    bool   `json:"download"` // API > 5.2
+	IP          net.IP `json:"-"`
+}
+
 func main() {
 	iface, err := net.InterfaceByName("wlp3s0")
 	if err != nil {
-		log.Fatal("Error getting interface:", err)
+		log.Fatal("Error getting interface: ", err)
 	}
 	network := "udp4"
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 	mcgroup, err := net.ListenMulticastUDP(network, iface, multicastAddr)
 	if err != nil {
-		log.Fatal("Error connecting to multicast group", err)
+		log.Fatal("Error connecting to multicast group: ", err)
 	}
 	log.Println("gocalsending now!")
 	log.Printf("Listening to %s udp multicast group %s:%d", network, multicastAddr.IP.String(), multicastAddr.Port)
