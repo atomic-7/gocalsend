@@ -2,21 +2,26 @@
 
 - [] Advertise local node to peers
      - [] send advertisement to multicast address via udp
-     - [] send own encryption key to peers
+     - [] send own encryption key to peers (should be in advertisement as fingerprint)
+     - [] store answers in fingerprint->peer map
 - [] Discover peers
-     - [] listen on broadcast address
-     - [] receive a peers encryption keys
+     - [] listen on broadcast address, make sure to enable loopback so local testing becomes possible
+     - [] receive a peers encryption keys (fingerprint), add to certpool?
+     - [] hit their /api/localsend/v2/register via https
+     - [] host own /api/localsend/v2/register endpoint so peers can answer to the advertisement
 
 - [] Encryption
-	- [] generate a certificate
+	- [] generate a certificate -> https://eli.thegreenplace.net/2021/go-https-servers-with-tls/
 	- [] encrypt a file using the certificate
     - [] decrypt a file using a peers certificate
+    encryption and decryption should just be tls
 
 - [] Protocol parsing
     - [] support version 1
     - [] support version 2 (https only)
 
 - [] Session manager
+    - [] map between fingerprints and peers with a mutex
 
 - [] Receive a single file
     - start http server, listen at /api/localsend/v2/prepare-upload
