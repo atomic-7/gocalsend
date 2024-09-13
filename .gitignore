@@ -15,3 +15,6 @@ build/
 
 # nohup logs
 nohup.*
+
+# certs
+cert/
