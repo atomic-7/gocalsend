@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -69,9 +70,12 @@ func SendTo(ctx context.Context, peer *PeerInfo, nodeJson []byte) error {
 	// don't know if the response is  going to be interesting
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+
+	// Sending node info to peer failed: Post "http://192.168.117.39:53317/api/localsend/v2/register": EOF
+	if !errors.Is(err, io.EOF) {
 		return err
 	}
+
 	log.Println("%s responds with %s", peer.Alias, body)
 	return nil
 }
@@ -86,6 +90,7 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *Pe
 	log.Printf("Listening to %s udp multicast group %s:%d\n", network, multicastAddr.IP.String(), multicastAddr.Port)
 	//TODO: rewrite this to manually setup the multicast group to be able to have local packets be visible via loopback
 	mcgroup, err := net.ListenMulticastUDP(network, iface, multicastAddr)
+	defer mcgroup.Close()
 	if err != nil {
 		log.Fatal("Error connecting to multicast group: ", err)
 	}
@@ -127,7 +132,38 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *Pe
 			log.Println("Received empty udp packet?")
 		}
 	}
+}
 
+func CreateRegisterHandler(peers *PeerMap) http.Handler {
+
+	return http.HandlerFunc(func (writer http.ResponseWriter, r *http.Request) {
+		buf, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Fatal("Error reading register body: ", err)
+		}
+		var peer PeerInfo
+		json.Unmarshal(buf, &peer)
+		log.Printf("Registering %s via http register route", peer.Alias) // remember to lock the mutex
+		peers.LockMap()
+		defer peers.UnlockMap()
+		if _,ok := peers.Map[peer.Fingerprint]; ok {
+			log.Printf("%s was already a known peer", peer.Alias)
+		} else {
+			peers.Map[peer.Fingerprint] = &peer	
+		}
+	})
+}
+func RunServer(port string, peers *PeerMap) {
+	
+	if peers == nil {
+		log.Fatal("error setting up server, peermap is nil")
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/api/localsend/v2/register", CreateRegisterHandler(peers))
+	
+	err := http.ListenAndServe(port, mux)
+	log.Fatalf("Error running server at port %s: %s", port, err)
 }
 
 func main() {
@@ -156,6 +192,7 @@ func main() {
 	log.Println("gocalsending now!")
 
 	ctx := context.Background()
+	go RunServer(fmt.Sprintf(":%d", node.Port), peers)
 	MonitorMulticast(ctx, multicastAddr, peers, jsonBuf)
 
 }
