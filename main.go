@@ -31,6 +31,14 @@ type PeerMap struct {
 	Lock sync.Mutex
 }
 
+func (pm *PeerMap) LockMap() {
+	pm.Lock.Lock()
+}
+
+func (pm *PeerMap) UnlockMap() {
+	pm.Lock.Unlock()
+}
+
 func (node *PeerInfo) AnnounceMulticast(multicastAdress *net.UDPAddr) {
 	conn, err := net.Dial("udp4", multicastAdress.String())
 	if err != nil {
