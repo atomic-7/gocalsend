@@ -59,9 +59,7 @@ func (node *PeerInfo) AnnounceMulticast(multicastAdress *net.UDPAddr) {
 func SendTo(ctx context.Context, peer *PeerInfo, nodeJson []byte) error {
 	log.Println("Called SendTo")
 
-	// errors here: first part of the url cannot contain : ??
-	// Sending node info to peer failed: parse "192.168.117.39:53317/api/localsend/v2/register": first path segment in URL cannot contain colon
-	url := fmt.Sprintf("%s:%d/api/localsend/v2/register", peer.IP, peer.Port)
+	url := fmt.Sprintf("http://%s:%d/api/localsend/v2/register", peer.IP, peer.Port)
 	log.Printf("Using: %s with %s", url, string(nodeJson))
 
 	resp, err := http.Post(url, "application/json", bytes.NewReader(nodeJson))
