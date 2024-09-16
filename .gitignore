@@ -1,7 +1,3 @@
-# Binaries
-gocalsend
-gclsnd
-
 # Build artifacts
 build/
 *.exe
