@@ -18,12 +18,15 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("REC: %s", string(buf))
 
-	peer := &data.PeerInfo{}
+	peer := &data.PeerBody{}
 	err = json.Unmarshal(buf, peer)
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		log.Fatal("Error unmarshalling request body: ", err)
 	}
 	log.Printf("Register: %v", peer)
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func main() {
