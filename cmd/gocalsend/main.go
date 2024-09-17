@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/server"
@@ -99,6 +100,7 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 			if err != nil {
 				log.Fatal("Error reading udp packet", err)
 			} else {
+
 				log.Printf("[MC][%s]: %s ...", from.String(), string(buf[0:50]))
 				info := &data.PeerInfo{}
 				info.IP = from.IP
@@ -133,14 +135,27 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 }
 func main() {
 
+	var port int
+	var certPath string
+	var keyPath string
+
+	flag.IntVar(&port, "port", 53317, "The port to listen for the api endpoints")
+	flag.StringVar(&certPath, "certpath", "cert/cert.pem", "The path to the tls certificate")
+	flag.StringVar(&keyPath, "keypath", "cert/key.pem", "The path to the tls private key")
+
+	tlsInfo := &data.TLSPaths{
+		Cert:       certPath,
+		PrivateKey: keyPath,
+	}
+
 	node := &data.PeerInfo{
 		Alias:       "Gocalsend",
 		Version:     "2.0",
 		DeviceModel: "cli",
 		DeviceType:  "server",
 		Fingerprint: "nonononono",
-		Port:        53317,
-		Protocol:    "http",
+		Port:        port,
+		Protocol:    "https", // changing this to https might work to prevent the other client from going with the info route
 		Download:    false,
 		IP:          nil,
 		Announce:    false,
@@ -157,7 +172,7 @@ func main() {
 	log.Println("gocalsending now!")
 
 	ctx := context.Background()
-	go server.RunServer(fmt.Sprintf(":%d", node.Port), peers)
+	go server.RunServer(fmt.Sprintf(":%d", node.Port), peers, tlsInfo)
 	MonitorMulticast(ctx, multicastAddr, peers, jsonBuf)
 
 }

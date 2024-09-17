@@ -83,3 +83,8 @@ func (pm *PeerMap) LockMap() {
 func (pm *PeerMap) UnlockMap() {
 	pm.Lock.Unlock()
 }
+
+type TLSPaths struct {
+	Cert string
+	PrivateKey string
+}

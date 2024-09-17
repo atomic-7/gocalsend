@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"github.com/atomic-7/gocalsend/internal/data"
 	"io"
@@ -37,7 +38,7 @@ func CreateRegisterHandler(peers *data.PeerMap) http.Handler {
 	})
 }
 
-func RunServer(port string, peers *data.PeerMap) {
+func RunServer(port string, peers *data.PeerMap, tlsInfo *data.TLSPaths) {
 
 	if peers == nil {
 		log.Fatal("error setting up server, peermap is nil")
@@ -45,11 +46,29 @@ func RunServer(port string, peers *data.PeerMap) {
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/localsend/v2/register", CreateRegisterHandler(peers))
-	// TODO: create route handlers for /api/localsend/v1/info and /api/loclasend/v2/info?fingerprint=asdsadasdas
 	mux.HandleFunc("/api/localsend/v1/info", InfoHandler)
 	mux.HandleFunc("/api/localsend/v2/info", InfoHandler)
 	mux.HandleFunc("/", ReqLogger)
 
-	err := http.ListenAndServe(port, mux)
-	log.Fatalf("Error running server at port %s: %s", port, err)
+	// TODO: Setup a seperate mux and server for the register endpoint that remains http in any case
+	tlsInfo = nil
+	var srv http.Server
+	var err error
+	if tlsInfo != nil {
+		srv = http.Server{
+			Addr: port,
+			Handler: mux,
+			TLSConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			},
+		}
+		err = srv.ListenAndServeTLS(tlsInfo.Cert, tlsInfo.PrivateKey)
+	} else {
+		srv = http.Server{
+			Addr:    port,
+			Handler: mux,
+		}
+		err = srv.ListenAndServe()
+	}
+	log.Fatal("Error runinng rest endpoints: ", err)
 }
