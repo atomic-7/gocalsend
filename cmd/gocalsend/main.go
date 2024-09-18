@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/atomic-7/gocalsend/internal/data"
+	"github.com/atomic-7/gocalsend/internal/encryption"
 	"github.com/atomic-7/gocalsend/internal/server"
 	"io"
 	"log"
@@ -148,12 +149,13 @@ func main() {
 		PrivateKey: keyPath,
 	}
 
+	// TODO: Read cert, make sha256 and set to fingerprint
 	node := &data.PeerInfo{
 		Alias:       "Gocalsend",
 		Version:     "2.0",
 		DeviceModel: "cli",
 		DeviceType:  "server",
-		Fingerprint: "nonononono",
+		Fingerprint: encryption.GetFingerprint(certPath),
 		Port:        port,
 		Protocol:    "https", // changing this to https might work to prevent the other client from going with the info route
 		Download:    false,
@@ -171,8 +173,8 @@ func main() {
 	// AnnounceMulticast(node, multicastAddr)
 	log.Println("gocalsending now!")
 
-	ctx := context.Background()
-	go server.RunServer(fmt.Sprintf(":%d", node.Port), peers, tlsInfo)
+	ctx,cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go server.StartServer(ctx, fmt.Sprintf(":%d", node.Port),fmt.Sprintf(":%d", node.Port + 1), peers, tlsInfo)
 	MonitorMulticast(ctx, multicastAddr, peers, jsonBuf)
-
 }
