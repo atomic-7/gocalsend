@@ -1,12 +1,14 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
-	"github.com/atomic-7/gocalsend/internal/data"
 	"io"
 	"log"
 	"net/http"
+
+	"github.com/atomic-7/gocalsend/internal/data"
 )
 
 func ReqLogger(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +40,7 @@ func CreateRegisterHandler(peers *data.PeerMap) http.Handler {
 	})
 }
 
-func RunServer(port string, peers *data.PeerMap, tlsInfo *data.TLSPaths) {
+func StartServer(ctx context.Context, port string, tlsport string, peers *data.PeerMap, tlsInfo *data.TLSPaths) {
 
 	if peers == nil {
 		log.Fatal("error setting up server, peermap is nil")
@@ -50,25 +52,49 @@ func RunServer(port string, peers *data.PeerMap, tlsInfo *data.TLSPaths) {
 	mux.HandleFunc("/api/localsend/v2/info", InfoHandler)
 	mux.HandleFunc("/", ReqLogger)
 
-	// TODO: Setup a seperate mux and server for the register endpoint that remains http in any case
-	tlsInfo = nil
 	var srv http.Server
-	var err error
+	srv = http.Server{
+		Addr:    port,
+		Handler: mux,
+	}
+
+	var tlsrv http.Server
 	if tlsInfo != nil {
-		srv = http.Server{
-			Addr: port,
+		tlsrv = http.Server{
+			Addr:    tlsport,
 			Handler: mux,
 			TLSConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
 			},
 		}
-		err = srv.ListenAndServeTLS(tlsInfo.Cert, tlsInfo.PrivateKey)
-	} else {
-		srv = http.Server{
-			Addr:    port,
-			Handler: mux,
-		}
-		err = srv.ListenAndServe()
 	}
-	log.Fatal("Error runinng rest endpoints: ", err)
+
+	errChan := make(chan error)
+
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil {
+			errChan <- err
+		}
+	}()
+	go func() {
+		err := tlsrv.ListenAndServeTLS(tlsInfo.Cert, tlsInfo.PrivateKey)
+		if err != nil {
+			errChan <- err
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			srv.Shutdown(ctx)
+			tlsrv.Shutdown(ctx)
+		case err := <-errChan:
+			srv.Shutdown(ctx)
+			tlsrv.Shutdown(ctx)
+			log.Fatal("Error running api: ", err)
+		}
+
+	}
+
 }
