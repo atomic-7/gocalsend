@@ -137,17 +137,21 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 func main() {
 
 	var port int
-	var certPath string
-	var keyPath string
+	var certName string
+	var keyName string
+	var credDir string
 
 	flag.IntVar(&port, "port", 53317, "The port to listen for the api endpoints")
-	flag.StringVar(&certPath, "certpath", "cert/cert.pem", "The path to the tls certificate")
-	flag.StringVar(&keyPath, "keypath", "cert/key.pem", "The path to the tls private key")
+	flag.StringVar(&certName, "cert", "cert.pem", "The filename of the tls certificate")
+	flag.StringVar(&keyName, "key", "key.pem", "The filename of the tls private key")
+	flag.StringVar(&credDir, "credentials", "cert", "The path to the tls credentials")
 
 	tlsInfo := &data.TLSPaths{
-		Cert:       certPath,
-		PrivateKey: keyPath,
+		Dir:        credDir,
+		CertPath:       certName,
+		KeyPath: keyName,
 	}
+
 
 	// TODO: Read cert, make sha256 and set to fingerprint
 	node := &data.PeerInfo{
@@ -155,13 +159,24 @@ func main() {
 		Version:     "2.0",
 		DeviceModel: "cli",
 		DeviceType:  "server",
-		Fingerprint: encryption.GetFingerprint(certPath),
+		Fingerprint: "",
 		Port:        port,
 		Protocol:    "https", // changing this to https might work to prevent the other client from going with the info route
 		Download:    false,
 		IP:          nil,
 		Announce:    false,
 	}
+
+	err := encryption.SetupTLSCerts(node.Alias, tlsInfo)
+	if err != nil {
+		log.Fatal("Failed to setup tls certificates")
+	}
+	fingerprint, err := encryption.GetFingerPrint(tlsInfo)
+	if err != nil {
+		log.Fatal("Could not calculate fingerprint, something went wrong during certificate setup")
+	}
+	node.Fingerprint = fingerprint
+
 	peers := &data.PeerMap{Map: make(map[string]*data.PeerInfo)}
 	jsonBuf, err := json.Marshal(node.ToPeerBody())
 	if err != nil {
@@ -173,8 +188,8 @@ func main() {
 	// AnnounceMulticast(node, multicastAddr)
 	log.Println("gocalsending now!")
 
-	ctx,cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go server.StartServer(ctx, fmt.Sprintf(":%d", node.Port),fmt.Sprintf(":%d", node.Port + 1), peers, tlsInfo)
+	go server.StartServer(ctx, fmt.Sprintf(":%d", node.Port), fmt.Sprintf(":%d", node.Port+1), peers, tlsInfo)
 	MonitorMulticast(ctx, multicastAddr, peers, jsonBuf)
 }
