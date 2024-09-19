@@ -8,6 +8,7 @@ setup:
 clean:
 	go clean
 	rm -rf ${OUTPUT}
+	rm -rf ./cert
 build: setup
 	go build -o ${OUTPUT}/${BINARY_NAME} ./cmd/gocalsend
 
