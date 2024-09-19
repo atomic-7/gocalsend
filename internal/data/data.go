@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"net"
 	"sync"
 )
@@ -85,6 +86,14 @@ func (pm *PeerMap) UnlockMap() {
 }
 
 type TLSPaths struct {
-	Cert string
-	PrivateKey string
+	Dir string
+	CertPath string
+	KeyPath string
+}
+func CreateTLSPaths(dir string, certName string, keyName string) *TLSPaths {
+	return &TLSPaths{
+		Dir:      dir,
+		CertPath: fmt.Sprintf("%s/%s", dir, certName),
+		KeyPath:  fmt.Sprintf("%s/%s", dir, keyName),
+	}
 }
