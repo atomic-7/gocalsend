@@ -78,7 +78,7 @@ func StartServer(ctx context.Context, port string, tlsport string, peers *data.P
 		}
 	}()
 	go func() {
-		err := tlsrv.ListenAndServeTLS(tlsInfo.Cert, tlsInfo.PrivateKey)
+		err := tlsrv.ListenAndServeTLS(tlsInfo.CertPath, tlsInfo.KeyPath)
 		if err != nil {
 			errChan <- err
 		}

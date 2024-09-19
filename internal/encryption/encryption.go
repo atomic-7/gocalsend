@@ -19,6 +19,7 @@ import (
 
 func calcFingerPrint(reader io.Reader) string {
 
+	// the hash does not seem to be correct
 	h := sha256.New()
 	if _, err := io.Copy(h, reader); err != nil {
 		log.Fatal(err)
@@ -54,9 +55,11 @@ func CheckTLS(certPath string, privKeyPath string) bool {
 
 func SetupTLSCerts(alias string, paths *data.TLSPaths) error {
 
+	log.Println("Generating tls cert in %v", paths)
 	// TODO: Expand this to reuse an existing private key
 	if !(checkFile(paths.KeyPath) && checkFile(paths.CertPath)) {
 		log.Println("Could not find existing certificate and private key, generating a new one")
+		os.MkdirAll(paths.Dir, 0700)
 		cred, err := createCert(nil, alias, "localhost")
 		if err != nil {
 			return err
