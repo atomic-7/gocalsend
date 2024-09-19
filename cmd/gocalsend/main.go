@@ -144,14 +144,9 @@ func main() {
 	flag.IntVar(&port, "port", 53317, "The port to listen for the api endpoints")
 	flag.StringVar(&certName, "cert", "cert.pem", "The filename of the tls certificate")
 	flag.StringVar(&keyName, "key", "key.pem", "The filename of the tls private key")
-	flag.StringVar(&credDir, "credentials", "cert", "The path to the tls credentials")
+	flag.StringVar(&credDir, "credentials", "./cert", "The path to the tls credentials")
 
-	tlsInfo := &data.TLSPaths{
-		Dir:        credDir,
-		CertPath:       certName,
-		KeyPath: keyName,
-	}
-
+	tlsInfo := data.CreateTLSPaths(credDir, certName, keyName)
 
 	// TODO: Read cert, make sha256 and set to fingerprint
 	node := &data.PeerInfo{
