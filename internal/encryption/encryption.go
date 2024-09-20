@@ -9,6 +9,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"github.com/atomic-7/gocalsend/internal/data"
 	"io"
 	"log"
@@ -17,18 +18,6 @@ import (
 	"time"
 )
 
-func calcFingerPrint(reader io.Reader) string {
-
-	// the hash does not seem to be correct
-	h := sha256.New()
-	if _, err := io.Copy(h, reader); err != nil {
-		log.Fatal(err)
-	}
-	fingerprint := h.Sum(nil)
-
-	return string(fingerprint)
-}
-
 func GetFingerPrint(paths *data.TLSPaths) (string, error) {
 
 	file, err := os.Open(paths.CertPath)
@@ -36,7 +25,13 @@ func GetFingerPrint(paths *data.TLSPaths) (string, error) {
 		log.Println("Error opening tls certificate", err)
 		return "", err
 	}
-	return calcFingerPrint(file), nil
+	contents, err := io.ReadAll(file)
+	if err != nil {
+		log.Println("Could not read the tls certificate from disk: ", err)
+		return "", err
+	}
+	fingerprint := sha256.Sum256(contents)
+	return fmt.Sprintf("%x", fingerprint), nil
 }
 
 func checkFile(path string) bool {
