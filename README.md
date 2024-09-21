@@ -7,6 +7,9 @@ Run for a release build:
 Run for a development build with debug symbols:
 ```make all```
 
+## Encryption
+gocalsend uses a rsa 2048 bit privte key as the localsend reference implementation does
+
 
 ## Related work
 - [protocol](https://github.com/localsend/protocol) Protocol documentation

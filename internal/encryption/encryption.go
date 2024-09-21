@@ -1,9 +1,8 @@
 package encryption
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -44,7 +43,7 @@ func checkFile(path string) bool {
 }
 
 // return true if the given paths point to
-func CheckTLS(certPath string, privKeyPath string) bool {
+func CheckTLSFiles(certPath string, privKeyPath string) bool {
 	return checkFile(certPath) && checkFile(privKeyPath)
 }
 
@@ -75,9 +74,9 @@ type Credentials struct {
 // Generate a self signed certificate with the given private key. If key is nil, a new one is generated
 // based on https://eli.thegreenplace.net/2021/go-https-servers-with-tls/
 // as its own module in github.com/atomic-7/goncert/goncert
-func createCert(pk *ecdsa.PrivateKey, org string, dnsname string) (*Credentials, error) {
+func createCert(pk *rsa.PrivateKey, org string, dnsname string) (*Credentials, error) {
 
-	var privateKey *ecdsa.PrivateKey
+	var privateKey *rsa.PrivateKey
 	var err error
 	if org == "" {
 		return nil, errors.New("Missing parameter: organization cannot be empty string")
@@ -88,8 +87,7 @@ func createCert(pk *ecdsa.PrivateKey, org string, dnsname string) (*Credentials,
 	if pk != nil {
 		privateKey = pk
 	} else {
-		// P256 is allowed for TLS1.3
-		privateKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		privateKey,err = rsa.GenerateKey(rand.Reader, 2045)
 		if err != nil {
 			log.Fatalf("Failed to generate private key: %v", err)
 		}
