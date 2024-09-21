@@ -16,8 +16,10 @@ func ReqLogger(w http.ResponseWriter, r *http.Request) {
 }
 
 func InfoHandler(w http.ResponseWriter, r *http.Request) {
+	// apparently the localsend implementation expects some response here? https://github.com/localsend/localsend/blob/main/common/lib/src/discovery/http_target_discovery.dart
 	r.ParseForm()
-	log.Printf("INFO: %v", r.Form)
+	// default response is 200 ok if nothing is written to the response writer
+	log.Printf("%s: %v", r.URL, r.Form)
 }
 
 func CreateRegisterHandler(peers *data.PeerMap) http.Handler {
@@ -40,7 +42,7 @@ func CreateRegisterHandler(peers *data.PeerMap) http.Handler {
 	})
 }
 
-func StartServer(ctx context.Context, port string, tlsport string, peers *data.PeerMap, tlsInfo *data.TLSPaths) {
+func StartServer(ctx context.Context, port string, peers *data.PeerMap, tlsInfo *data.TLSPaths) {
 
 	if peers == nil {
 		log.Fatal("error setting up server, peermap is nil")
@@ -53,52 +55,24 @@ func StartServer(ctx context.Context, port string, tlsport string, peers *data.P
 	mux.HandleFunc("/", ReqLogger)
 
 	var srv http.Server
-	srv = http.Server{
-		Addr:    port,
-		Handler: mux,
-	}
 
 	// Might have to use InsecureSkipVerify here with a VerifyConnection function to check against the known fingerprints?
 	// TODO: Look into VerifyConnection
-	// did not work???
-	var tlsrv http.Server
 	if tlsInfo != nil {
-		tlsrv = http.Server{
-			Addr:    tlsport,
+		srv = http.Server{
+			Addr:    port,
 			Handler: mux,
 			TLSConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
-				// InsecureSkipVerify: true,
+				InsecureSkipVerify: true,
 			},
 		}
+		log.Fatal(srv.ListenAndServeTLS(tlsInfo.CertPath, tlsInfo.KeyPath))
+	} else {
+		srv = http.Server{
+			Addr:    port,
+			Handler: mux,
+		}
+		log.Fatal(srv.ListenAndServe())
 	}
-
-	errChan := make(chan error)
-
-	go func() {
-		err := srv.ListenAndServe()
-		if err != nil {
-			errChan <- err
-		}
-	}()
-	go func() {
-		err := tlsrv.ListenAndServeTLS(tlsInfo.CertPath, tlsInfo.KeyPath)
-		if err != nil {
-			errChan <- err
-		}
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			srv.Shutdown(ctx)
-			tlsrv.Shutdown(ctx)
-		case err := <-errChan:
-			srv.Shutdown(ctx)
-			tlsrv.Shutdown(ctx)
-			log.Fatal("Error running api: ", err)
-		}
-
-	}
-
 }
