@@ -23,7 +23,7 @@ func AnnounceMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 	}
 }
 
-func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *data.PeerMap, jsonBuf []byte) {
+func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *data.PeerMap, registratinator *Registratinator) {
 
 	iface, err := net.InterfaceByName("wlp3s0")
 	if err != nil {
@@ -68,8 +68,9 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 
 				if info.Announce {
 					log.Printf("Sending node info to %s", info.Alias)
-					err := SendTo(ctx, info, jsonBuf)
+					err := registratinator.RegisterAt(ctx, info)
 					if err != nil {
+						log.Println("Pre map lock")
 						pm := *peers.GetMap()
 						defer peers.ReleaseMap()
 						log.Printf("PM: %v\n", pm)

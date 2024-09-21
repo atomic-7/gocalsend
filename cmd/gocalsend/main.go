@@ -68,14 +68,15 @@ func main() {
 	if err != nil {
 		log.Fatal("Error marshalling local node to json: ", err)
 	}
+	registratinator := discovery.NewRegistratinator(jsonBuf, node.Protocol)
 
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 	// When we multicast first, registry via our http endpoint is fine. Me calling their endpoint results in a crash
-	// AnnounceMulticast(node, multicastAddr)
+	// discovery.AnnounceMulticast(node, multicastAddr)
 	log.Println("gocalsending now!")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go server.StartServer(ctx, fmt.Sprintf(":%d", node.Port+1), fmt.Sprintf(":%d", node.Port), peers, tlsInfo)
-	discovery.MonitorMulticast(ctx, multicastAddr, peers, jsonBuf)
+	go server.StartServer(ctx, fmt.Sprintf(":%d", node.Port), peers, tlsInfo)
+	discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
 }
