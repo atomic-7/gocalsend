@@ -8,8 +8,8 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"github.com/atomic-7/gocalsend/internal/data"
+	"encoding/hex"
 	"io"
 	"log"
 	"math/big"
@@ -30,7 +30,7 @@ func GetFingerPrint(paths *data.TLSPaths) (string, error) {
 		return "", err
 	}
 	fingerprint := sha256.Sum256(contents)
-	return fmt.Sprintf("%x", fingerprint), nil
+	return hex.EncodeToString(fingerprint[:]), nil
 }
 
 func checkFile(path string) bool {
@@ -105,6 +105,7 @@ func createCert(pk *rsa.PrivateKey, org string, dnsname string) (*Credentials, e
 		Subject: pkix.Name{
 			Organization: []string{org},
 		},
+		// maybe consider specifying URIs here as well
 		DNSNames:  []string{dnsname}, // this might be optional
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(24 * time.Hour),
