@@ -16,7 +16,7 @@ type PeerInfo struct {
 	Port        int    `json:"port"`
 	Protocol    string `json:"protocol"` // http | https
 	Download    bool   `json:"download"` // API > 5.2
-	Announce    bool   `json:"announce"`	// announce field is on peerinfo because it makes parsing easy, announce can just be checked as a property of the struct this way
+	Announce    bool   `json:"announce"` // announce field is on peerinfo because it makes parsing easy, announce can just be checked as a property of the struct this way
 	IP          net.IP `json:"-"`
 }
 
@@ -73,23 +73,31 @@ type AnnounceInfo struct {
 }
 
 type PeerMap struct {
-	Map  map[string]*PeerInfo
-	Lock sync.Mutex
+	peers map[string]*PeerInfo
+	lock  sync.Mutex
 }
 
-func (pm *PeerMap) LockMap() {
-	pm.Lock.Lock()
+func NewPeerMap() *PeerMap {
+	return &PeerMap{
+		peers: make(map[string]*PeerInfo),
+	}
 }
 
-func (pm *PeerMap) UnlockMap() {
-	pm.Lock.Unlock()
+func (pm *PeerMap) GetMap() *map[string]*PeerInfo {
+	pm.lock.Lock()
+	return &pm.peers
+}
+
+func (pm *PeerMap) ReleaseMap() {
+	pm.lock.Unlock()
 }
 
 type TLSPaths struct {
-	Dir string
+	Dir      string
 	CertPath string
-	KeyPath string
+	KeyPath  string
 }
+
 func CreateTLSPaths(dir string, certName string, keyName string) *TLSPaths {
 	return &TLSPaths{
 		Dir:      dir,

@@ -22,20 +22,20 @@ func InfoHandler(w http.ResponseWriter, r *http.Request) {
 
 func CreateRegisterHandler(peers *data.PeerMap) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
-		log.Println("Incoming registry via http")
+		log.Println("Incoming registry via api")
 		buf, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Fatal("Error reading register body: ", err)
 		}
 		var peer data.PeerInfo
 		json.Unmarshal(buf, &peer)
-		log.Printf("Registering %s via http register route", peer.Alias) // remember to lock the mutex
-		peers.LockMap()
-		defer peers.UnlockMap()
-		if _, ok := peers.Map[peer.Fingerprint]; ok {
+		log.Printf("Registering %s via api register route", peer.Alias) // remember to lock the mutex
+		pm := *peers.GetMap()
+		defer peers.ReleaseMap()
+		if _, ok := pm[peer.Fingerprint]; ok {
 			log.Printf("%s was already a known peer", peer.Alias)
 		} else {
-			peers.Map[peer.Fingerprint] = &peer
+			pm[peer.Fingerprint] = &peer
 		}
 	})
 }
@@ -58,6 +58,9 @@ func StartServer(ctx context.Context, port string, tlsport string, peers *data.P
 		Handler: mux,
 	}
 
+	// Might have to use InsecureSkipVerify here with a VerifyConnection function to check against the known fingerprints?
+	// TODO: Look into VerifyConnection
+	// did not work???
 	var tlsrv http.Server
 	if tlsInfo != nil {
 		tlsrv = http.Server{
@@ -65,6 +68,7 @@ func StartServer(ctx context.Context, port string, tlsport string, peers *data.P
 			Handler: mux,
 			TLSConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
+				// InsecureSkipVerify: true,
 			},
 		}
 	}
