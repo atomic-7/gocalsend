@@ -26,6 +26,7 @@ func main() {
 	flag.BoolVar(&useTLS, "usetls", true, "Use https (usetls=true) or use http (usetls=false)")
 	flag.Parse()
 
+	// TODO: Figure out if it makes more sense to serialize this once or to have it serialized wherever it is needed
 	node := &data.PeerInfo{
 		Alias:       "Gocalsend",
 		Version:     "2.0",

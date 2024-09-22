@@ -57,16 +57,18 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 				}
 				log.Printf("[MC][%s]: %s %s", from.String(), info.Alias, info.Protocol)
 
+				unknownPeer := true
 				pm := *peers.GetMap()
 				if _, ok := pm[info.Fingerprint]; !ok {
 					log.Printf("[PM]Adding: %s", info.Alias)
 					pm[info.Fingerprint] = info
 				} else {
-					log.Printf("MulticastMonitor: Peer %s was already known", info.Alias)
+					unknownPeer = false
+					log.Printf("[MC]: Peer %s was already known", info.Alias)
 				}
 				peers.ReleaseMap()
 
-				if info.Announce {
+				if info.Announce && unknownPeer {
 					log.Printf("Sending node info to %s", info.Alias)
 					err := registratinator.RegisterAt(ctx, info)
 					if err != nil {
