@@ -82,3 +82,22 @@ response:
   "fingerprint": "random string", // ignored in HTTPS mode
   "download": true, // if the download API (5.2 and 5.3) is active (optional, default: false)
 }
+
+
+For some reason the mobile client does not seem to support the register endpoint when encryption is on. The desktop client shows this in the logs:
+`[INFO] [Multicast] Respond to announcement of Smart Cookie (192.168.117.39, model: Honor) with UDP because TCP failed`
+This curl call seems to yield the correct response however:
+` //curl --json '{"alias":"Gocalsend","version":"2.0","deviceModel":"cli","deviceType":"headless","fingerprint":"3d7b158a3f1279bab4c1926b1375bfbd05af954dbaaef7e4ff3ead226dbe9288","port":53320,"protocol":"https","download":false}' --insecure https://192.168.117.39:53317/api/localsend/v2/register`
+This could be because the endpoint might still be http only and curl ignores that with --insecure??
+But then it should work to just send the request to the register endpoint via normal http.
+Does not work tho
+
+
+### TLS
+use
+`openssl s_client -connect <ip:port> | openssl x509 -text -noout`
+to get info on the certificate used by localsend. There is also a debugging page in the about section found in the settings
+The reference implementation seems to use a 2048 bit rsa private key with sha256 for their signature.
+They do not seem to set any subject alternative names (san) which is going to cause issues with the standard tls implementation of golang.
+They also just use 1 as the serial number.
+There also do not seem to be any x509v3 extensions used

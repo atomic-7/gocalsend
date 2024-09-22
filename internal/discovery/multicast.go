@@ -48,7 +48,6 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 				log.Fatal("Error reading udp packet", err)
 			} else {
 
-				log.Printf("[MC][%s]: %s ...", from.String(), string(buf[0:50]))
 				info := &data.PeerInfo{}
 				info.IP = from.IP
 				err = json.Unmarshal(buf[:n], info) // need to specify the number of bytes read here!
@@ -56,6 +55,7 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 					log.Printf("buf: %v", buf[0:400])
 					log.Fatal("Error unmarshaling json: ", err)
 				}
+				log.Printf("[MC][%s]: %s %s", from.String(), info.Alias, info.Protocol)
 
 				pm := *peers.GetMap()
 				if _, ok := pm[info.Fingerprint]; !ok {
