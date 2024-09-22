@@ -11,18 +11,29 @@ import (
 	"github.com/atomic-7/gocalsend/internal/data"
 )
 
-func ReqLogger(w http.ResponseWriter, r *http.Request) {
+func reqLogger(w http.ResponseWriter, r *http.Request) {
 	log.Printf("RQ: %v", r)
 }
 
-func InfoHandler(w http.ResponseWriter, r *http.Request) {
-	// apparently the localsend implementation expects some response here? https://github.com/localsend/localsend/blob/main/common/lib/src/discovery/http_target_discovery.dart
-	r.ParseForm()
-	// default response is 200 ok if nothing is written to the response writer
-	log.Printf("%s: %v", r.URL, r.Form)
+func createInfoHandler(nodeJson []byte) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// apparently the localsend implementation expects some response here? https://github.com/localsend/localsend/blob/main/common/lib/src/discovery/http_target_discovery.dart
+		// content-type: application/json; charset=utf-8
+		// x-frame-options: SAMEORIGIN
+		// x-xss-protection: 1; mode=block
+		// transfer-encoding: chunked
+		// x-content-type-options: nosniff
+		// {"alias":"Strategic Carrot","version":"2.1","deviceModel":"Linux","deviceType":"desktop","fingerprint":"1E6045836FC02E3A88B683FA47DDBD4E4CBDFD3F5C8C65136F118DFB9B0F2ACE","download":false}
+
+		r.ParseForm()
+		log.Printf("%s: %v", r.URL, r.Form)
+		w.Header().Add("Content-Type", "application/json")
+		w.Write(nodeJson)
+	})
+
 }
 
-func CreateRegisterHandler(peers *data.PeerMap) http.Handler {
+func createRegisterHandler(peers *data.PeerMap) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
 		log.Println("Incoming registry via api")
 		buf, err := io.ReadAll(r.Body)
@@ -42,17 +53,18 @@ func CreateRegisterHandler(peers *data.PeerMap) http.Handler {
 	})
 }
 
-func StartServer(ctx context.Context, port string, peers *data.PeerMap, tlsInfo *data.TLSPaths) {
+func StartServer(ctx context.Context, port string, peers *data.PeerMap, tlsInfo *data.TLSPaths, nodeJson []byte) {
 
 	if peers == nil {
 		log.Fatal("error setting up server, peermap is nil")
 	}
 
+	infoHandler := createInfoHandler(nodeJson)
 	mux := http.NewServeMux()
-	mux.Handle("/api/localsend/v2/register", CreateRegisterHandler(peers))
-	mux.HandleFunc("/api/localsend/v1/info", InfoHandler)
-	mux.HandleFunc("/api/localsend/v2/info", InfoHandler)
-	mux.HandleFunc("/", ReqLogger)
+	mux.Handle("/api/localsend/v2/register", createRegisterHandler(peers))
+	mux.Handle("/api/localsend/v1/info", infoHandler)
+	mux.Handle("/api/localsend/v2/info", infoHandler)
+	mux.HandleFunc("/", reqLogger)
 
 	var srv http.Server
 
@@ -63,7 +75,7 @@ func StartServer(ctx context.Context, port string, peers *data.PeerMap, tlsInfo 
 			Addr:    port,
 			Handler: mux,
 			TLSConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12,
+				MinVersion:         tls.VersionTLS12,
 				InsecureSkipVerify: true,
 			},
 		}

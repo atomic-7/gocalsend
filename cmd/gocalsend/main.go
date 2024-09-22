@@ -68,6 +68,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error marshalling local node to json: ", err)
 	}
+	log.Printf("NodeJson: %s", string(jsonBuf))
 	registratinator := discovery.NewRegistratinator(jsonBuf, node.Protocol)
 
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
@@ -77,6 +78,6 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go server.StartServer(ctx, fmt.Sprintf(":%d", node.Port), peers, tlsInfo)
+	go server.StartServer(ctx, fmt.Sprintf(":%d", node.Port), peers, tlsInfo, jsonBuf)
 	discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
 }
