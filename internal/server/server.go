@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -33,16 +34,21 @@ func createInfoHandler(nodeJson []byte) http.Handler {
 
 }
 
-func createRegisterHandler(peers *data.PeerMap) http.Handler {
+// Registry seems to work when encryption is turned of for the peer, but not when active
+func createRegisterHandler(localNode *data.PeerInfo, peers *data.PeerMap) http.Handler {
+	regResp, err := json.Marshal(localNode.ToRegisterResponse())
+	if err != nil {
+		log.Fatal("Could not marshal local node for response to register handler: ", err)
+	}
 	return http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
-		log.Println("Incoming registry via api")
+		log.Printf("Incoming registry via api: %s", r.URL)
 		buf, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Fatal("Error reading register body: ", err)
 		}
 		var peer data.PeerInfo
 		json.Unmarshal(buf, &peer)
-		log.Printf("Registering %s via api register route", peer.Alias) // remember to lock the mutex
+		log.Printf("Registering %s via api register route", peer.Alias) 
 		pm := *peers.GetMap()
 		defer peers.ReleaseMap()
 		if _, ok := pm[peer.Fingerprint]; ok {
@@ -50,27 +56,35 @@ func createRegisterHandler(peers *data.PeerMap) http.Handler {
 		} else {
 			pm[peer.Fingerprint] = &peer
 		}
+		writer.Write(regResp)
 	})
 }
 
-func StartServer(ctx context.Context, port string, peers *data.PeerMap, tlsInfo *data.TLSPaths, nodeJson []byte) {
+func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.PeerMap, tlsInfo *data.TLSPaths) {
 
 	if peers == nil {
 		log.Fatal("error setting up server, peermap is nil")
 	}
+	jsonBuf, err := json.Marshal(localNode.ToPeerBody())
+	if err != nil {
+		log.Fatal("Error marshalling local node to json: ", err)
+	}
+	log.Printf("NodeJson: %s", string(jsonBuf))
 
-	infoHandler := createInfoHandler(nodeJson)
+	infoHandler := createInfoHandler(jsonBuf)
 	mux := http.NewServeMux()
-	mux.Handle("/api/localsend/v2/register", createRegisterHandler(peers))
+	mux.Handle("/api/localsend/v2/register", createRegisterHandler(localNode, peers))
 	mux.Handle("/api/localsend/v1/info", infoHandler)
 	mux.Handle("/api/localsend/v2/info", infoHandler)
 	mux.HandleFunc("/", reqLogger)
 
 	var srv http.Server
+	port := fmt.Sprintf(":%d", localNode.Port)
 
 	// Might have to use InsecureSkipVerify here with a VerifyConnection function to check against the known fingerprints?
 	// TODO: Look into VerifyConnection
 	if tlsInfo != nil {
+		log.Println("Setup https api")
 		srv = http.Server{
 			Addr:    port,
 			Handler: mux,

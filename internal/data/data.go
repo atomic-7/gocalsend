@@ -33,6 +33,18 @@ func (pi *PeerInfo) ToPeerBody() *PeerBody {
 	}
 }
 
+func (pi *PeerInfo) ToRegisterResponse() *RegisterResponse {
+	return &RegisterResponse{
+		Alias:       pi.Alias,
+		Version:     pi.Version,
+		DeviceModel: pi.DeviceModel,
+		DeviceType:  pi.DeviceType,
+		Fingerprint: pi.Fingerprint,
+		Port:        pi.Port,
+		Download:    false,
+	}
+}
+
 func (pi *PeerInfo) ToAnnouncement() *AnnounceInfo {
 	return &AnnounceInfo{
 		Alias:       pi.Alias,
@@ -58,6 +70,18 @@ type PeerBody struct {
 	Protocol    string `json:"protocol"` // http | https
 	Download    bool   `json:"download"` // API > 5.2
 }
+
+type RegisterResponse struct {
+	Alias       string `json:"alias"`
+	Version     string `json:"version"`
+	DeviceModel string `json:"deviceModel"`
+	DeviceType  string `json:"deviceType"`
+	// mobile | desktop | web | headless | server | ""
+	Fingerprint string `json:"fingerprint"`
+	Port        int    `json:"port"`
+	Download    bool   `json:"download"` // API > 5.2
+}
+
 
 type AnnounceInfo struct {
 	Alias       string `json:"alias"`
