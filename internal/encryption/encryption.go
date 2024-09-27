@@ -49,7 +49,7 @@ func CheckTLSFiles(certPath string, privKeyPath string) bool {
 
 func SetupTLSCerts(alias string, paths *data.TLSPaths) error {
 
-	log.Printf("Generating tls cert in %v\n", paths)
+	log.Printf("Using tls cert and key in %v\n", paths)
 	// TODO: Expand this to reuse an existing private key
 	if !(checkFile(paths.KeyPath) && checkFile(paths.CertPath)) {
 		log.Println("Could not find existing certificate and private key, generating a new one")
