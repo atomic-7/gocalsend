@@ -11,6 +11,24 @@ import (
 )
 
 func AnnounceMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
+// Fallback registration method in case the register endpoint does not work
+func RegisterViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
+	conn, err := net.Dial("udp4", multicastAdress.String())
+	if err != nil {
+		log.Fatal("Error trying to register the node via multicast: ", err)
+	}
+	registration := node.ToAnnouncement()
+	registration.Announce = false
+	buf, err := json.Marshal(registration)
+	if err != nil {
+		log.Fatal("Error marshalling node: ", err)
+	}
+	_, err = conn.Write(buf)
+	if err != nil {
+		log.Fatal("Error writing node info: ", err)
+	}
+}
+
 func AnnounceViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 	conn, err := net.Dial("udp4", multicastAdress.String())
 	if err != nil {
