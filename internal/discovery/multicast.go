@@ -32,34 +32,41 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 		log.Fatal("Failed getting list of interfaces: ", err)
 	}
 	candidates := make([]*net.Interface, 0, len(ifaces))
-	fmt.Println("Interfaces:")
+	log.Println("Setting up multicast interface")
 	for _, ife := range ifaces {
 		if strings.Contains(ife.Name, "lo") {
-			// TODO: Make loopback interface detection better
-			fmt.Println("[lo] Skip(loopback)")
+			// TODO: Improve loopback interface detection
+			log.Println("[lo] Skip(loopback)")
 			continue
 		}
 		if strings.Contains(ife.Name, "docker") {
-			fmt.Printf("[%s] Skip(Docker)\n", ife.Name)
+			log.Printf("[%s] Skip(Docker)\n", ife.Name)
 			continue
 		}
 		if !hasFlag(ife, net.FlagUp) {
-			fmt.Printf("[%s] Skip(Interface down)\n", ife.Name)
+			log.Printf("[%s] Skip(Interface down)\n", ife.Name)
+			continue
+		}
+		if !hasFlag(ife, net.FlagRunning) {
+			log.Printf("[%s] Skip(Not running)\n", ife.Name)
 			continue
 		}
 		if !hasFlag(ife, net.FlagMulticast) {
-			fmt.Printf("[%s] Skip(No multicast)\n", ife.Name)
+			log.Printf("[%s] Skip(No multicast)\n", ife.Name)
 		}
 		candidates = append(candidates, &ife)
 	}
 
 	switch len(candidates) {
-		case 0:
-			log.Fatal("Found no viable interface for multicast")
-		case 1:
-			log.Println("Found one viable network interface")
-		default:
-			log.Println("Found %d viable network interfaces", len(candidates))
+	case 0:
+		log.Fatal("Found no viable interface for multicast")
+	case 1:
+		log.Println("Found one viable network interface")
+	default:
+		log.Printf("Found %d viable network interfaces", len(candidates))
+		for _, ife := range candidates {
+			fmt.Printf("[%s] %s\n", ife.Name, ife.Flags.String())
+		}
 	}
 	iface := candidates[0]
 	log.Printf("Selecting %s", iface.Name)
