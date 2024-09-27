@@ -11,17 +11,18 @@ import (
 )
 
 func AnnounceMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
+func AnnounceViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 	conn, err := net.Dial("udp4", multicastAdress.String())
 	if err != nil {
 		log.Fatal("Error trying to announce the node via multicast: ", err)
 	}
 	buf, err := json.Marshal(node.ToAnnouncement())
 	if err != nil {
-		log.Fatal("Error marshalling node:", err)
+		log.Fatal("Error marshalling node: ", err)
 	}
 	_, err = conn.Write(buf)
 	if err != nil {
-		log.Fatal("Error announcing node:", err)
+		log.Fatal("Error writing node info: ", err)
 	}
 }
 
@@ -34,6 +35,7 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 	candidates := make([]*net.Interface, 0, len(ifaces))
 	log.Println("Setting up multicast interface")
 	for _, ife := range ifaces {
+		
 		if strings.Contains(ife.Name, "lo") {
 			// TODO: Improve loopback interface detection
 			log.Println("[lo] Skip(loopback)")
