@@ -28,7 +28,8 @@ func RegisterViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 	}
 }
 
-func AnnounceViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
+// Blast node info to the multicast address
+func AnnounceViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) error {
 	conn, err := net.Dial("udp4", multicastAdress.String())
 	if err != nil {
 		log.Fatal("Error trying to announce the node via multicast: ", err)
@@ -39,11 +40,75 @@ func AnnounceViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 	}
 	_, err = conn.Write(buf)
 	if err != nil {
-		log.Fatal("Error writing node info: ", err)
+		log.Println("Error writing node info: ", err)
+		return err
 	}
+	return nil
 }
 
 func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *data.PeerMap, registratinator *Registratinator) {
+
+	iface := GetInterface()
+	log.Printf("Selecting %s", iface.Name)
+	network := "udp4"
+	log.Printf("Listening to %s multicast group %s:%d\n", network, multicastAddr.IP.String(), multicastAddr.Port)
+	//TODO: rewrite this to manually setup the multicast group to be able to have local packets be visible via loopback
+	mcgroup, err := net.ListenMulticastUDP(network, iface, multicastAddr)
+	defer mcgroup.Close()
+	if err != nil {
+		log.Fatal("Error connecting to multicast group: ", err)
+	}
+
+	buf := make([]byte, iface.MTU)
+	for {
+		// consider using mcgroup.ReadMsgUDP?
+		n, from, err := mcgroup.ReadFromUDP(buf)
+		if n != 0 {
+			if err != nil {
+				log.Fatal("Error reading udp packet", err)
+			} else {
+
+				info := &data.PeerInfo{}
+				info.IP = from.IP
+				err = json.Unmarshal(buf[:n], info) // need to specify the number of bytes read here!
+				if err != nil {
+					log.Printf("buf: %v", buf[0:400])
+					log.Fatal("Error unmarshaling json: ", err)
+				}
+				log.Printf("[MC][%s]: %s %s", from.String(), info.Alias, info.Protocol)
+
+				unknownPeer := true
+				pm := *peers.GetMap()
+				if _, ok := pm[info.Fingerprint]; !ok {
+					log.Printf("[PM]Adding: %s", info.Alias)
+					pm[info.Fingerprint] = info
+				} else {
+					unknownPeer = false
+					log.Printf("[MC]: Peer %s was already known", info.Alias)
+				}
+				peers.ReleaseMap()
+
+				if info.Announce && unknownPeer {
+					// TODO: delay this. I am currently sniping a starting instance before the http server is up
+					log.Printf("Sending node info to %s", info.Alias)
+					err := registratinator.RegisterAt(ctx, info)
+					if err != nil {
+						log.Println("Pre map lock")
+						pm := *peers.GetMap()
+						defer peers.ReleaseMap()
+						log.Printf("PM: %v\n", pm)
+						log.Fatal("Sending node info to peer failed: ", err)
+					}
+				}
+			}
+		} else {
+			log.Println("Received empty udp packet?")
+		}
+	}
+}
+
+// return the network interface. kills the program if none can be found
+func GetInterface() *net.Interface {
 
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -87,61 +152,7 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 			fmt.Printf("[%s] %s\n", ife.Name, ife.Flags.String())
 		}
 	}
-	iface := candidates[0]
-	log.Printf("Selecting %s", iface.Name)
-	// iface, err := net.InterfaceByName("wlp3s0")
-	network := "udp4"
-	log.Printf("Listening to %s multicast group %s:%d\n", network, multicastAddr.IP.String(), multicastAddr.Port)
-	//TODO: rewrite this to manually setup the multicast group to be able to have local packets be visible via loopback
-	mcgroup, err := net.ListenMulticastUDP(network, iface, multicastAddr)
-	defer mcgroup.Close()
-	if err != nil {
-		log.Fatal("Error connecting to multicast group: ", err)
-	}
-
-	buf := make([]byte, iface.MTU)
-	for {
-		// consider using mcgroup.ReadMsgUDP?
-		n, from, err := mcgroup.ReadFromUDP(buf)
-		if n != 0 {
-			if err != nil {
-				log.Fatal("Error reading udp packet", err)
-			} else {
-
-				info := &data.PeerInfo{}
-				info.IP = from.IP
-				err = json.Unmarshal(buf[:n], info) // need to specify the number of bytes read here!
-				if err != nil {
-					log.Printf("buf: %v", buf[0:400])
-					log.Fatal("Error unmarshaling json: ", err)
-				}
-				log.Printf("[MC][%s]: %s %s", from.String(), info.Alias, info.Protocol)
-
-				unknownPeer := true
-				pm := *peers.GetMap()
-				if _, ok := pm[info.Fingerprint]; !ok {
-					log.Printf("[PM]Adding: %s", info.Alias)
-					pm[info.Fingerprint] = info
-				} else {
-					unknownPeer = false
-					log.Printf("[MC]: Peer %s was already known", info.Alias)
-				}
-				peers.ReleaseMap()
-
-				if info.Announce && unknownPeer {
-					log.Printf("Sending node info to %s", info.Alias)
-					err := registratinator.RegisterAt(ctx, info)
-					if err != nil {
-						log.Println("Pre map lock")
-						pm := *peers.GetMap()
-						defer peers.ReleaseMap()
-						log.Printf("PM: %v\n", pm)
-						log.Fatal("Sending node info to peer failed: ", err)
-					}
-				}
-			}
-		} else {
-			log.Println("Received empty udp packet?")
-		}
-	}
+	// copy out the struct so not the entire slice needs to be kept allocated
+	iface := *candidates[0]
+	return &iface
 }
