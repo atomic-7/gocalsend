@@ -3,9 +3,11 @@ package discovery
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/atomic-7/gocalsend/internal/data"
 	"log"
 	"net"
+	"strings"
 )
 
 func AnnounceMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
@@ -25,12 +27,45 @@ func AnnounceMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 
 func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *data.PeerMap, registratinator *Registratinator) {
 
-	iface, err := net.InterfaceByName("wlp3s0")
+	ifaces, err := net.Interfaces()
 	if err != nil {
-		log.Fatal("Error getting interface: ", err)
+		log.Fatal("Failed getting list of interfaces: ", err)
 	}
+	candidates := make([]*net.Interface, 0, len(ifaces))
+	fmt.Println("Interfaces:")
+	for _, ife := range ifaces {
+		if strings.Contains(ife.Name, "lo") {
+			// TODO: Make loopback interface detection better
+			fmt.Println("[lo] Skip(loopback)")
+			continue
+		}
+		if strings.Contains(ife.Name, "docker") {
+			fmt.Printf("[%s] Skip(Docker)\n", ife.Name)
+			continue
+		}
+		if !hasFlag(ife, net.FlagUp) {
+			fmt.Printf("[%s] Skip(Interface down)\n", ife.Name)
+			continue
+		}
+		if !hasFlag(ife, net.FlagMulticast) {
+			fmt.Printf("[%s] Skip(No multicast)\n", ife.Name)
+		}
+		candidates = append(candidates, &ife)
+	}
+
+	switch len(candidates) {
+		case 0:
+			log.Fatal("Found no viable interface for multicast")
+		case 1:
+			log.Println("Found one viable network interface")
+		default:
+			log.Println("Found %d viable network interfaces", len(candidates))
+	}
+	iface := candidates[0]
+	log.Printf("Selecting %s", iface.Name)
+	// iface, err := net.InterfaceByName("wlp3s0")
 	network := "udp4"
-	log.Printf("Listening to %s udp multicast group %s:%d\n", network, multicastAddr.IP.String(), multicastAddr.Port)
+	log.Printf("Listening to %s multicast group %s:%d\n", network, multicastAddr.IP.String(), multicastAddr.Port)
 	//TODO: rewrite this to manually setup the multicast group to be able to have local packets be visible via loopback
 	mcgroup, err := net.ListenMulticastUDP(network, iface, multicastAddr)
 	defer mcgroup.Close()
@@ -38,8 +73,7 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 		log.Fatal("Error connecting to multicast group: ", err)
 	}
 
-	// hopefully no jumbo frames
-	buf := make([]byte, 1500)
+	buf := make([]byte, iface.MTU)
 	for {
 		// consider using mcgroup.ReadMsgUDP?
 		n, from, err := mcgroup.ReadFromUDP(buf)
@@ -84,4 +118,13 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 			log.Println("Received empty udp packet?")
 		}
 	}
+}
+
+func hasFlag(iface net.Interface, flag net.Flags) bool {
+	for ifFlag := range iface.Flags {
+		if ifFlag == flag {
+			return true
+		}
+	}
+	return false
 }
