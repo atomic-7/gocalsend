@@ -66,10 +66,13 @@ func main() {
 
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 	// When we multicast first, registry via our http endpoint is fine. Me calling their endpoint results in a crash because the mobile client cannot handle http and https on the same port
-	// discovery.AnnounceViaMulticast(node, multicastAddr)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	err := discovery.AnnounceViaMulticast(node, multicastAddr)
+	if err != nil {
+		registratinator.RegisterAtSubnet(ctx,peers)
+	}
 	go server.StartServer(ctx, node, peers, tlsInfo)
 	discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
 }

@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -74,7 +75,7 @@ func (regi *Registratinator) registerClient(ctx context.Context, url string) err
 	}
 
 	if err != nil {
-		log.Fatal("Error doing request: ", err)
+		return err
 	}
 
 	// The desktop clients log claims the mobile clients register route fails when answering to the phones multicast and falls back to multicast after the register route fails
@@ -124,9 +125,33 @@ func (regi *Registratinator) RegisterAt(ctx context.Context, peer *data.PeerInfo
 }
 
 // Falback fallback: try registering by hitting every live ip in the subnet
-func (regi *Registratinator) RegisterAtSubnet(ctx context.Context, iface net.Interface, knownPeers *data.PeerMap) error {
-	// use net/netip to represent the ips?
-	// if f&(1<<uint(i)) != 0 {
-	// isLoopback := iface.Flags&(1<<uint(net.FlagRunning)) == 1
+func (regi *Registratinator) RegisterAtSubnet(ctx context.Context, knownPeers *data.PeerMap) error {
+	// not actually trying to reach google, just getting my local ip address
+	// This should cause no communication with another server
+	// should probably replace this with iterating over the ip adresses bound to the used interface
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Printf("Could not dial 8.8.8.8 to determine local ip addr: %v", err)
+		return err
+	}
+	prefix, err := netip.ParsePrefix(conn.LocalAddr().(*net.UDPAddr).IP.String() + "/24")
+	if err != nil {
+		log.Printf("Error parsing prefix: %v", err)
+		return err
+	}
+	log.Printf("Prefix: %v\n", prefix)
+	prefix = prefix.Masked()
+	urls := make([]*netip.Addr, 0, 256)
+	for addr := prefix.Addr(); prefix.Contains(addr); addr = addr.Next() {
+		urls = append(urls, &addr)
+	}
+
+	// TODO: Optimize with waitgroup, currently each timeout runs out completely before moving on to the next address
+	for _, addr := range(urls[100:110]) {
+		err := regi.registerClient(ctx, fmt.Sprintf("http://%s:53317/api/localsend/v2/register", addr.String()))
+		if err != nil {
+			log.Printf("[SUBREG] Could not reach %s\n", addr.String())	
+		}
+	}
 	return nil
 }
