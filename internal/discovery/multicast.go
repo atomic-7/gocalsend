@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-func AnnounceMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 // Fallback registration method in case the register endpoint does not work
 func RegisterViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 	conn, err := net.Dial("udp4", multicastAdress.String())
@@ -63,15 +62,15 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 			log.Printf("[%s] Skip(Docker)\n", ife.Name)
 			continue
 		}
-		if !hasFlag(ife, net.FlagUp) {
+		if ife.Flags & net.FlagUp == 0 {
 			log.Printf("[%s] Skip(Interface down)\n", ife.Name)
 			continue
 		}
-		if !hasFlag(ife, net.FlagRunning) {
+		if ife.Flags & net.FlagRunning == 0 {
 			log.Printf("[%s] Skip(Not running)\n", ife.Name)
 			continue
 		}
-		if !hasFlag(ife, net.FlagMulticast) {
+		if ife.Flags & net.FlagRunning == 0 {
 			log.Printf("[%s] Skip(No multicast)\n", ife.Name)
 		}
 		candidates = append(candidates, &ife)
@@ -145,13 +144,4 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 			log.Println("Received empty udp packet?")
 		}
 	}
-}
-
-func hasFlag(iface net.Interface, flag net.Flags) bool {
-	for ifFlag := range iface.Flags {
-		if ifFlag == flag {
-			return true
-		}
-	}
-	return false
 }
