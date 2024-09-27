@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/atomic-7/gocalsend/internal/data"
@@ -30,9 +32,9 @@ func NewRegistratinator(localNode *data.PeerInfo) *Registratinator {
 	client := &http.Client{
 		Transport: &http.Transport{
 			// DisableKeepAlives:     true,
-			ResponseHeaderTimeout: time.Duration(3 * time.Second),
+			ResponseHeaderTimeout: time.Duration(2 * time.Second),
 		},
-		Timeout: time.Duration(5 * time.Second), // This timeout leads to a segfault if io.ReadAll(req.body) is running
+		Timeout: time.Duration(2 * time.Second), // This timeout leads to a segfault if io.ReadAll(req.body) is running
 	}
 	tlsClient := &http.Client{
 		Transport: &http.Transport{
@@ -41,9 +43,9 @@ func NewRegistratinator(localNode *data.PeerInfo) *Registratinator {
 				InsecureSkipVerify: true,
 			},
 			// DisableKeepAlives:     true,
-			ResponseHeaderTimeout: time.Duration(3 * time.Second),
+			ResponseHeaderTimeout: time.Duration(2 * time.Second),
 		},
-		Timeout: time.Duration(5 * time.Second),
+		Timeout: time.Duration(2 * time.Second),
 	}
 	return &Registratinator{
 		client:    client,
@@ -52,11 +54,8 @@ func NewRegistratinator(localNode *data.PeerInfo) *Registratinator {
 	}
 }
 
-// Send a post request to /api/localsend/v2/register with the node data
-func (regi *Registratinator) RegisterAt(ctx context.Context, peer *data.PeerInfo) error {
+func (regi *Registratinator) registerClient(ctx context.Context, url string) error {
 
-	// TODO: Verify that peer.Protocol is not a malicious string
-	url := fmt.Sprintf("%s://%s:%d/api/localsend/v2/register", peer.Protocol, peer.IP, peer.Port)
 	log.Printf("Using: %s, sending %d bytes", url, len(regi.Payload))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(regi.Payload))
@@ -68,7 +67,7 @@ func (regi *Registratinator) RegisterAt(ctx context.Context, peer *data.PeerInfo
 	req.Header.Set("User-Agent", "go1.23.0 linux/amd64")
 	req.Close = true
 	var resp *http.Response
-	if peer.Protocol == "https" {
+	if strings.HasPrefix(url, "https") {
 		resp, err = regi.tlsClient.Do(req)
 	} else {
 		resp, err = regi.client.Do(req)
@@ -104,15 +103,30 @@ func (regi *Registratinator) RegisterAt(ctx context.Context, peer *data.PeerInfo
 	}
 	log.Printf("Response: %v", resp)
 	if resp.ContentLength != 0 {
-		log.Printf("Peer %s responds with %s", peer.Alias, string(body))
+		log.Printf("Peer responds with %s", string(body))
 	}
 	var peerResponse data.PeerBody
 	err = json.Unmarshal(body, &peerResponse)
 	if err != nil {
-		log.Printf("Error unmarshalling response from %s: %v", peer.Alias, err)
+		log.Printf("Error unmarshalling response from %s: %v", peerResponse.Alias, err)
 		return err
 	}
 
 	log.Println("Sent off local node info!")
+	return nil
+}
+// Send a post request to /api/localsend/v2/register with the node data
+func (regi *Registratinator) RegisterAt(ctx context.Context, peer *data.PeerInfo) error {
+
+	// TODO: Verify that peer.Protocol is not a malicious string
+	url := fmt.Sprintf("%s://%s:%d/api/localsend/v2/register", peer.Protocol, peer.IP, peer.Port)
+	return regi.registerClient(ctx, url)
+}
+
+// Falback fallback: try registering by hitting every live ip in the subnet
+func (regi *Registratinator) RegisterAtSubnet(ctx context.Context, iface net.Interface, knownPeers *data.PeerMap) error {
+	// use net/netip to represent the ips?
+	// if f&(1<<uint(i)) != 0 {
+	// isLoopback := iface.Flags&(1<<uint(net.FlagRunning)) == 1
 	return nil
 }
