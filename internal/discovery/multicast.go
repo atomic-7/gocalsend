@@ -80,11 +80,11 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 				unknownPeer := true
 				pm := *peers.GetMap()
 				if _, ok := pm[info.Fingerprint]; !ok {
-					log.Printf("[PM]Adding: %s", info.Alias)
+					log.Printf("[MC][PM]: Adding %s", info.Alias)
 					pm[info.Fingerprint] = info
 				} else {
 					unknownPeer = false
-					log.Printf("[MC]: Peer %s was already known", info.Alias)
+					log.Printf("[MC][PM]: Peer %s was already known", info.Alias)
 				}
 				peers.ReleaseMap()
 
@@ -97,8 +97,14 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 						pm := *peers.GetMap()
 						defer peers.ReleaseMap()
 						log.Printf("PM: %v\n", pm)
+						// TODO: analyze error, if the error could be due to their api endpoint not responding, register via mc
 						log.Fatal("Sending node info to peer failed: ", err)
+						RegisterViaMulticast(info, multicastAddr)
 					}
+				}
+				
+				if !info.Announce {
+					log.Printf("[MC]: Peer %s is trying to register via multicast fallback\n", info.Alias)
 				}
 			}
 		} else {
