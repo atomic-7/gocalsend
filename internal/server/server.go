@@ -18,47 +18,25 @@ func reqLogger(w http.ResponseWriter, r *http.Request) {
 
 func HandlePrepareUpload(w http.ResponseWriter, r *http.Request) {
 	// TODO: Figure out how to parse the url parameters with parseForm but not the body
-	var rawKeys map[string]json.RawMessage
+	// TODO: adjust error codes
+	payload := &data.PreparePayload{
+		Files: make(map[string]*data.File),
+	}
 
 	buf, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(500)
 		log.Fatal("Could not read request body for prepare upload request: ", err)
 	}
-	err = json.Unmarshal(buf, &rawKeys)
+	err = json.Unmarshal(buf, payload)
 	if err != nil {
 		w.WriteHeader(500)
-		log.Fatalf("Could not unmarshal raw keys from %v: %v ", string(buf[0:100]), err)
+		log.Fatalf("Could not unmarshal payload from %v: %v ", string(buf[0:100]), err)
 	}
 
-	// Check required fields
-	// TODO: Warn if the json has more fields than just info and files
-	if _,ok := rawKeys["info"]; !ok {
-		w.WriteHeader(500)	// change this, info is missing from post req
-		log.Fatalf("posted json did not have an info key: %s\n", string(buf[0:100]))
-	}
-	if _,ok := rawKeys["files"]; !ok {
-		w.WriteHeader(500)	// change this, files is missing from post req
-		log.Fatalf("posted json did not have a files key: %s\n", string(buf[0:100]))
-	}
-
-	var peerInfo *data.PeerInfo
-	var fileMap map[string]*data.File
-	// Unmarshal raw msgs into their respective fields
-	err = json.Unmarshal(rawKeys["info"], &peerInfo)
-	if err != nil {
-		w.WriteHeader(500)
-		log.Fatalf("Failed to unmarshal info struct from %v: %v\n", string(buf[0:100]), err)
-	}
-	err = json.Unmarshal(rawKeys["files"], &fileMap)
-	if err != nil {
-		w.WriteHeader(500)
-		log.Fatalf("Failed to unmarshal files map: %v\n", err)
-	}
-	
-	log.Printf("Received upload prep info: %v\n", peerInfo)
+	log.Printf("Received upload prep info: %v\n", payload.Info)
 	log.Println("Files to receive")
-	for fk, fv := range fileMap {
+	for fk, fv := range payload.Files {
 		fmt.Printf("[File] %s: %v\n", fk, fv)
 	}
 	files := make(map[string]*data.File)
@@ -88,7 +66,7 @@ func SessionReader(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal("Failed to read request body: ", err)
 	}
-	
+
 	log.Printf("SessBody: %s\n", string(buf))
 	//var sess *data.Session
 	sess := &data.Session{}
