@@ -1,6 +1,9 @@
 package data
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type MetaData struct {
 	Modified time.Time `json:"modified"` // nullable
@@ -14,16 +17,12 @@ type File struct {
 	FileType string   `json:"fileType"`
 	Sha256   string   `json:"sha256"`   // nullable
 	Preview  string   `json:"preview"`  // nullable
-	Metadata MetaData `json:"metadata"` // nullable
+	Metadata *MetaData `json:"metadata"` // nullable
 }
 
-// TODO: Look how to unmarshal this array with the file ids
-type PrepUpload struct {
-	Info  *PeerInfo       `json:"info"`
-	Files map[string]File `json:"files"` // array of "fileId": { "id": "fileId", ... }, maybe as a map instead of an array
-}
+type UploadPayload map[string]json.RawMessage
 
 type Session struct {
 	SessionId string            `json:"sessionId"`
-	Files     map[string]string `json:"files"`
+	Files     map[string]*File `json:"files"`
 }
