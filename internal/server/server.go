@@ -82,6 +82,27 @@ func HandlePrepareUpload(w http.ResponseWriter, r *http.Request) {
 	// w.WriteHeader(403) // reject all requests for now
 }
 
+func SessionReader(w http.ResponseWriter, r *http.Request) {
+
+	buf, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Fatal("Failed to read request body: ", err)
+	}
+	
+	log.Printf("SessBody: %s\n", string(buf))
+	//var sess *data.Session
+	sess := &data.Session{}
+	sess.Files = make(map[string]*data.File)
+	err = json.Unmarshal(buf, sess)
+	if err != nil {
+		log.Fatal("Failed to unmarshal into session: ", err)
+	}
+	log.Printf("Received session %s", sess.SessionId)
+	for fk, fv := range sess.Files {
+		fmt.Printf("[File] %s : %v\n", fk, fv)
+	}
+}
+
 func createInfoHandler(nodeJson []byte) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// apparently the localsend implementation expects some response here? https://github.com/localsend/localsend/blob/main/common/lib/src/discovery/http_target_discovery.dart
@@ -143,6 +164,7 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 	mux.Handle("/api/localsend/v1/info", infoHandler)
 	mux.Handle("/api/localsend/v2/info", infoHandler)
 	mux.HandleFunc("/api/localsend/v2/prepare-upload", HandlePrepareUpload)
+	mux.HandleFunc("/testing/sessions", SessionReader)
 	mux.HandleFunc("/", reqLogger)
 
 	var srv http.Server
