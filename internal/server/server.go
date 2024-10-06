@@ -17,6 +17,13 @@ func reqLogger(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandlePrepareUpload(w http.ResponseWriter, r *http.Request) {
+	// 204 Finished, no file transfer needed
+	// 400 Invalid body
+	// 401 Pin required / invalid pin
+	// 403 Rejected
+	// 409 Blocked by another session
+	// 429 Too many requests
+	// 500 Server error
 	// TODO: Figure out how to parse the url parameters with parseForm but not the body
 	// TODO: adjust error codes
 	payload := &data.PreparePayload{
@@ -79,6 +86,14 @@ func SessionReader(w http.ResponseWriter, r *http.Request) {
 	for fk, fv := range sess.Files {
 		fmt.Printf("[File] %s : %v\n", fk, fv)
 	}
+}
+
+func UploadHandler(w http.ResponseWriter, r *http.Request) {
+	// 400 missing parameters
+	// 403 invalid token or ip addr
+	// 409 blocked by another session
+	// 500 Server error
+
 }
 
 func createInfoHandler(nodeJson []byte) http.Handler {
