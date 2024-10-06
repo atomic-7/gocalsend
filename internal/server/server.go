@@ -16,6 +16,72 @@ func reqLogger(w http.ResponseWriter, r *http.Request) {
 	log.Printf("RQ: %v", r)
 }
 
+func HandlePrepareUpload(w http.ResponseWriter, r *http.Request) {
+	// TODO: Figure out how to parse the url parameters with parseForm but not the body
+	var rawKeys map[string]json.RawMessage
+
+	buf, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(500)
+		log.Fatal("Could not read request body for prepare upload request: ", err)
+	}
+	err = json.Unmarshal(buf, &rawKeys)
+	if err != nil {
+		w.WriteHeader(500)
+		log.Fatalf("Could not unmarshal raw keys from %v: %v ", string(buf[0:100]), err)
+	}
+
+	// Check required fields
+	// TODO: Warn if the json has more fields than just info and files
+	if _,ok := rawKeys["info"]; !ok {
+		w.WriteHeader(500)	// change this, info is missing from post req
+		log.Fatalf("posted json did not have an info key: %s\n", string(buf[0:100]))
+	}
+	if _,ok := rawKeys["files"]; !ok {
+		w.WriteHeader(500)	// change this, files is missing from post req
+		log.Fatalf("posted json did not have a files key: %s\n", string(buf[0:100]))
+	}
+
+	var peerInfo *data.PeerInfo
+	var fileMap map[string]*data.File
+	// Unmarshal raw msgs into their respective fields
+	err = json.Unmarshal(rawKeys["info"], &peerInfo)
+	if err != nil {
+		w.WriteHeader(500)
+		log.Fatalf("Failed to unmarshal info struct from %v: %v\n", string(buf[0:100]), err)
+	}
+	err = json.Unmarshal(rawKeys["files"], &fileMap)
+	if err != nil {
+		w.WriteHeader(500)
+		log.Fatalf("Failed to unmarshal files map: %v\n", err)
+	}
+	
+	log.Printf("Received upload prep info: %v\n", peerInfo)
+	log.Println("Files to receive")
+	for fk, fv := range fileMap {
+		fmt.Printf("[File] %s: %v\n", fk, fv)
+	}
+	files := make(map[string]*data.File)
+	files["example file"] = &data.File{
+		Id:       "example file",
+		FileName: "example.txt",
+		Size:     0,
+		FileType: "text",
+		Metadata: nil,
+	}
+	session := &data.Session{
+		SessionId: "not implemented yet",
+		Files:     files,
+	}
+	resp, err := json.Marshal(session)
+	if err != nil {
+		w.WriteHeader(500)
+		log.Fatal("Failed to marshal the example response: ", err)
+	}
+	w.Write(resp)
+	// w.WriteHeader(403) // reject all requests for now
+}
+
 func createInfoHandler(nodeJson []byte) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// apparently the localsend implementation expects some response here? https://github.com/localsend/localsend/blob/main/common/lib/src/discovery/http_target_discovery.dart
@@ -48,7 +114,7 @@ func createRegisterHandler(localNode *data.PeerInfo, peers *data.PeerMap) http.H
 		}
 		var peer data.PeerInfo
 		json.Unmarshal(buf, &peer)
-		log.Printf("Registering %s via api register route", peer.Alias) 
+		log.Printf("Registering %s via api register route", peer.Alias)
 		pm := *peers.GetMap()
 		defer peers.ReleaseMap()
 		if _, ok := pm[peer.Fingerprint]; ok {
@@ -76,10 +142,12 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 	mux.Handle("/api/localsend/v2/register", createRegisterHandler(localNode, peers))
 	mux.Handle("/api/localsend/v1/info", infoHandler)
 	mux.Handle("/api/localsend/v2/info", infoHandler)
+	mux.HandleFunc("/api/localsend/v2/prepare-upload", HandlePrepareUpload)
 	mux.HandleFunc("/", reqLogger)
 
 	var srv http.Server
 	port := fmt.Sprintf(":%d", localNode.Port)
+	fmt.Printf("Server running at %d\n", localNode.Port)
 
 	// Might have to use InsecureSkipVerify here with a VerifyConnection function to check against the known fingerprints?
 	// TODO: Look into VerifyConnection
