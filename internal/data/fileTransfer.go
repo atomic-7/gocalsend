@@ -26,5 +26,5 @@ type PreparePayload struct {
 
 type Session struct {
 	SessionId string           `json:"sessionId"`
-	Files     map[string]*File `json:"files"`
+	Files     map[string]string `json:"files"`
 }

@@ -24,7 +24,7 @@ func HandlePrepareUpload(w http.ResponseWriter, r *http.Request) {
 	// 409 Blocked by another session
 	// 429 Too many requests
 	// 500 Server error
-	// TODO: Figure out how to parse the url parameters with parseForm but not the body
+	// TODO: Use ParseForm to get pin, it only reads the body when content-type is urlencoded
 	// TODO: adjust error codes
 	payload := &data.PreparePayload{
 		Files: make(map[string]*data.File),
@@ -43,16 +43,10 @@ func HandlePrepareUpload(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Received upload prep info: %v\n", payload.Info)
 	log.Println("Files to receive")
+	files := make(map[string]string)
 	for fk, fv := range payload.Files {
 		fmt.Printf("[File] %s: %v\n", fk, fv)
-	}
-	files := make(map[string]*data.File)
-	files["example file"] = &data.File{
-		Id:       "example file",
-		FileName: "example.txt",
-		Size:     0,
-		FileType: "text",
-		Metadata: nil,
+		files[fk] = fmt.Sprintf("TOK:%s", fv)
 	}
 	session := &data.Session{
 		SessionId: "not implemented yet",
@@ -77,7 +71,7 @@ func SessionReader(w http.ResponseWriter, r *http.Request) {
 	log.Printf("SessBody: %s\n", string(buf))
 	//var sess *data.Session
 	sess := &data.Session{}
-	sess.Files = make(map[string]*data.File)
+	sess.Files = make(map[string]string)
 	err = json.Unmarshal(buf, sess)
 	if err != nil {
 		log.Fatal("Failed to unmarshal into session: ", err)
@@ -93,6 +87,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	// 403 invalid token or ip addr
 	// 409 blocked by another session
 	// 500 Server error
+	r.ParseForm()
 
 }
 
