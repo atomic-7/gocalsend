@@ -29,6 +29,10 @@ func NewSessionManager() *SessionManager {
 }
 
 func (sm *SessionManager) createSession(files map[string]*data.File) *data.Session {
+func (sm *SessionManager) tokenize(sess *data.SessionInfo, file *data.File) string {
+	return fmt.Sprintf("%s#%s", sess.SessionID, file.ID)
+}
+
 	sm.Serial += 1
 	return &data.Session{
 		SessionId: fmt.Sprintf("gclsnd-%d", sm.Serial),
