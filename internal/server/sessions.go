@@ -23,19 +23,67 @@ type Session struct {
 
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		Serial: 1,
-		Sessions: make([]*data.Session, 10),
+		Serial:   1,
+		Sessions: make(map[string]*Session),
 	}
 }
 
-func (sm *SessionManager) createSession(files map[string]*data.File) *data.Session {
 func (sm *SessionManager) tokenize(sess *data.SessionInfo, file *data.File) string {
 	return fmt.Sprintf("%s#%s", sess.SessionID, file.ID)
 }
 
+func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.SessionInfo {
+	fileToToken := make(map[string]string, len(files))
+	idToFile := make(map[string]*data.File, len(files))
 	sm.Serial += 1
-	return &data.Session{
-		SessionId: fmt.Sprintf("gclsnd-%d", sm.Serial),
-		Files: files,
+	sessID := fmt.Sprintf("gclsnd-%d", sm.Serial)
+	sessInfo := &data.SessionInfo{
+		SessionID: sessID,
+		Files:     fileToToken,
 	}
+	for fileID, file := range files {
+		files[fileID].ID = fileID
+		fileToToken[fileID] =  sm.tokenize(sessInfo, file)
+		idToFile[fileID] = file
+	}
+	sm.lock.Lock()
+	sm.Sessions[sessInfo.SessionID] = &Session{
+		SessionID: sessID,
+		Files:     idToFile,
+		Finished:  0,
+	}
+	sm.lock.Unlock()
+	return sessInfo
+}
+
+func (sm *SessionManager) CancelSession(sessionID string) {
+	// Delete associated files if a session is cancelled before it is completed?
+	if _, ok := sm.Sessions[sessionID]; ok {
+		sm.lock.Lock()
+		delete(sm.Sessions, sessionID)
+		sm.lock.Unlock()
+	}
+}
+
+func (sm *SessionManager) FinishFile(sessID string, fileID string) error {
+	sm.lock.Lock()
+	defer sm.lock.Unlock()
+	if _, ok := sm.Sessions[sessID]; !ok {
+		return errors.New("Invalid session id")
+	}
+	sess := sm.Sessions[sessID]
+	sess.lock.Lock()
+	defer sess.lock.Unlock()
+	if _, ok := sess.Files[fileID]; !ok {
+		return errors.New("Invalid file id")
+	}
+	sess.Files[fileID].Done = true
+	sess.Finished += 1
+	return nil
+}
+
+func (sm *SessionManager) FinishSession(sessionId string) {
+	sm.lock.Lock()
+	delete(sm.Sessions, sessionId)
+	sm.lock.Unlock()
 }
