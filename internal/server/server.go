@@ -90,13 +90,40 @@ func SessionReader(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func UploadHandler(w http.ResponseWriter, r *http.Request) {
-	// 400 missing parameters
-	// 403 invalid token or ip addr
-	// 409 blocked by another session
-	// 500 Server error
-	r.ParseForm()
+func createUploadHandler(sman *SessionManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 400 missing parameters
+		// 403 invalid token or ip addr
+		// 409 blocked by another session
+		// 500 Server error
+		r.ParseForm()
+		// TODO: Check for malicious url parameters
+		if !r.Form.Has("sessionId") || !r.Form.Has("fileId") || !r.Form.Has("token") {
+			log.Printf("Req %s had invalid url params\n", r.URL)
+			w.WriteHeader(400)
+		}
+		if _, ok := sman.Sessions[r.Form.Get("sessionId")]; !ok {
+			log.Printf("Invalid session %s\n", r.Form.Get("sessionId"))
+			w.WriteHeader(403)
+		}
+		sess := sman.Sessions[r.Form.Get("sessionId")]
+		if _, ok := sess.Files[r.Form.Get("fileId")]; !ok {
+			log.Printf("Invalid fileid %s\n", r.Form.Get("fileId"))
+			w.WriteHeader(403)
+		}
 
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(500)
+			log.Fatal("Could not read upload data")
+		}
+		// just write text file to output for now
+		// need to do hash sum validation if hash is available
+		log.Printf("Content-Type: %s", r.Header.Get("Content-Type"))
+		log.Println("DATA:")
+		log.Println(string(data))
+
+	})
 }
 
 func createInfoHandler(nodeJson []byte) http.Handler {
@@ -154,12 +181,18 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 	}
 	log.Printf("NodeJson: %s", string(jsonBuf))
 
+	sessionManager := NewSessionManager()
+
 	infoHandler := createInfoHandler(jsonBuf)
+	prepUploadHandler := createPrepareUploadHandler(sessionManager)
+	uploadHandler := createUploadHandler(sessionManager)
 	mux := http.NewServeMux()
 	mux.Handle("/api/localsend/v2/register", createRegisterHandler(localNode, peers))
 	mux.Handle("/api/localsend/v1/info", infoHandler)
 	mux.Handle("/api/localsend/v2/info", infoHandler)
-	mux.HandleFunc("/api/localsend/v2/prepare-upload", HandlePrepareUpload)
+	mux.Handle("/api/localsend/v2/prepare-upload", prepUploadHandler)
+	mux.Handle("/api/localsend/v1/upload", uploadHandler)
+	mux.Handle("/api/localsend/v2/upload", uploadHandler)
 	mux.HandleFunc("/testing/sessions", SessionReader)
 	mux.HandleFunc("/", reqLogger)
 
