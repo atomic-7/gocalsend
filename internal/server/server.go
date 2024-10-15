@@ -78,13 +78,13 @@ func SessionReader(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("SessBody: %s\n", string(buf))
 	//var sess *data.Session
-	sess := &data.Session{}
+	sess := &data.SessionInfo{}
 	sess.Files = make(map[string]string)
 	err = json.Unmarshal(buf, sess)
 	if err != nil {
 		log.Fatal("Failed to unmarshal into session: ", err)
 	}
-	log.Printf("Received session %s", sess.SessionId)
+	log.Printf("Received session %s", sess.SessionID)
 	for fk, fv := range sess.Files {
 		fmt.Printf("[File] %s : %v\n", fk, fv)
 	}
