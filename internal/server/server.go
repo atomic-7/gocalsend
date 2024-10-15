@@ -16,49 +16,57 @@ func reqLogger(w http.ResponseWriter, r *http.Request) {
 	log.Printf("RQ: %v", r)
 }
 
-func HandlePrepareUpload(w http.ResponseWriter, r *http.Request) {
-	// 204 Finished, no file transfer needed
-	// 400 Invalid body
-	// 401 Pin required / invalid pin
-	// 403 Rejected
-	// 409 Blocked by another session
-	// 429 Too many requests
-	// 500 Server error
-	// TODO: Use ParseForm to get pin, it only reads the body when content-type is urlencoded
-	// TODO: adjust error codes
-	payload := &data.PreparePayload{
-		Files: make(map[string]*data.File),
-	}
+func createPrepareUploadHandler(sman *SessionManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 204 Finished, no file transfer needed
+		// 400 Invalid body
+		// 401 Pin required / invalid pin
+		// 403 Rejected
+		// 409 Blocked by another session
+		// 429 Too many requests
+		// 500 Server error
+		// TODO: Use ParseForm to get pin, it only reads the body when content-type is urlencoded
+		// TODO: adjust error codes
+		payload := &data.PreparePayload{
+			Files: make(map[string]*data.File),
+		}
 
-	buf, err := io.ReadAll(r.Body)
-	if err != nil {
-		w.WriteHeader(500)
-		log.Fatal("Could not read request body for prepare upload request: ", err)
-	}
-	err = json.Unmarshal(buf, payload)
-	if err != nil {
-		w.WriteHeader(500)
-		log.Fatalf("Could not unmarshal payload from %v: %v ", string(buf[0:100]), err)
-	}
+		buf, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(500)
+			log.Fatal("Could not read request body for prepare upload request: ", err)
+		}
+		err = json.Unmarshal(buf, payload)
+		if err != nil {
+			w.WriteHeader(500)
+			log.Fatalf("Could not unmarshal payload from %v: %v ", string(buf[0:100]), err)
+		}
 
-	log.Printf("Received upload prep info: %v\n", payload.Info)
-	log.Println("Files to receive")
-	files := make(map[string]string)
-	for fk, fv := range payload.Files {
-		fmt.Printf("[File] %s: %v\n", fk, fv)
-		files[fk] = fmt.Sprintf("TOK:%s", fv)
-	}
-	session := &data.Session{
-		SessionId: "not implemented yet",
-		Files:     files,
-	}
-	resp, err := json.Marshal(session)
-	if err != nil {
-		w.WriteHeader(500)
-		log.Fatal("Failed to marshal the example response: ", err)
-	}
-	w.Write(resp)
-	// w.WriteHeader(403) // reject all requests for now
+		log.Printf("Received upload prep info: %v\n", payload.Info)
+		log.Printf("Files: %v\n", payload.Files)
+		log.Println("Files to tokens")
+		// files := make(map[string]string)
+		// for fk, fv := range payload.Files {
+		// 	fmt.Printf("[File] %s: %v\n", fk, fv)
+		// 	files[fk] = fmt.Sprintf("TOK:%s", fv)
+		// }
+		sess := sman.CreateSession(payload.Files)
+		for fid, tok := range sess.Files {
+			fmt.Printf("[File] %s: TOK(%s)\n", fid, tok)
+		}
+		
+		// session := &data.SessionInfo{
+		// 	SessionID: "not implemented yet",
+		// 	Files:     files,
+		// }
+		resp, err := json.Marshal(sess)
+		if err != nil {
+			w.WriteHeader(500)
+			log.Fatal("Failed to marshal the example response: ", err)
+		}
+		w.Write(resp)
+		// w.WriteHeader(403) // reject all requests for now
+	})
 }
 
 func SessionReader(w http.ResponseWriter, r *http.Request) {
