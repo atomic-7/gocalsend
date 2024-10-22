@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/atomic-7/gocalsend/internal/data"
 )
@@ -54,7 +55,7 @@ func createPrepareUploadHandler(sman *SessionManager) http.Handler {
 		for fid, tok := range sess.Files {
 			fmt.Printf("[File] %s: TOK(%s)\n", fid, tok)
 		}
-		
+
 		// session := &data.SessionInfo{
 		// 	SessionID: "not implemented yet",
 		// 	Files:     files,
@@ -104,28 +105,53 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 			w.WriteHeader(400)
 			return
 		}
-		if _, ok := sman.Sessions[r.Form.Get("sessionId")]; !ok {
-			log.Printf("Invalid session %s\n", r.Form.Get("sessionId"))
+		sessID := r.Form.Get("sessionId")
+		fileID := r.Form.Get("fileId")
+		token := r.Form.Get("token")
+		if _, ok := sman.Sessions[sessID]; !ok {
+			log.Printf("Invalid session %s\n", sessID)
 			w.WriteHeader(403)
 			return
 		}
-		sess := sman.Sessions[r.Form.Get("sessionId")]
-		if _, ok := sess.Files[r.Form.Get("fileId")]; !ok {
-			log.Printf("Invalid fileid %s\n", r.Form.Get("fileId"))
+		sess := sman.Sessions[sessID]
+		if _, ok := sess.Files[fileID]; !ok {
+			log.Printf("Invalid fileid %s\n", fileID)
 			w.WriteHeader(403)
+			return
+		}
+		file := sess.Files[fileID]
+		if file.Token != token {
+			log.Printf("Valid session and id with invalid token: %s != %s\n", sess.Files[fileID].Token, token)
+			w.WriteHeader(500)
+			return
+		}
+		path := sman.BasePath
+		if file.Destination != "" {
+			path = file.Destination
+		}
+
+		osFile, err := os.Create(path + "/" + file.FileName)
+		defer osFile.Close()
+		if err != nil {
+			log.Printf("Failed to create the file %s: %v\n", path+"/"+file.FileName, err)
+			w.WriteHeader(500)
+			return
+		}
+		_, err = osFile.ReadFrom(r.Body) // could probably also use io.Copy
+		if err != nil {
+			log.Printf("Failed to write to file %s: %v\n", file.FileName, err)
+			w.WriteHeader(500)
+			return
+		}
+		err = osFile.Close()
+		if err != nil {
+			log.Printf("Failed to close file %s: %v\n", file.FileName, err)
+			w.WriteHeader(500)
 			return
 		}
 
-		data, err := io.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(500)
-			log.Fatal("Could not read upload data")
-		}
-		// just write text file to output for now
-		// need to do hash sum validation if hash is available
-		log.Printf("Content-Type: %s", r.Header.Get("Content-Type"))
-		log.Println("DATA:")
-		fmt.Println(string(data))
+		log.Printf("[%s] Downloaded %s to %s", sess.SessionID, file.FileName, path)
+		sman.FinishFile(sess.SessionID, fileID)
 	})
 }
 
@@ -184,7 +210,7 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 	}
 	log.Printf("NodeJson: %s", string(jsonBuf))
 
-	sessionManager := NewSessionManager()
+	sessionManager := NewSessionManager("/home/atomic/Downloads/gocalsend")
 
 	infoHandler := createInfoHandler(jsonBuf)
 	prepUploadHandler := createPrepareUploadHandler(sessionManager)
