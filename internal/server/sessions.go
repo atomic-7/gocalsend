@@ -46,7 +46,9 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 	// TODO: Check if there are already existing files with the same name in the BasePath
 	for fileID, file := range files {
 		files[fileID].ID = fileID
-		fileToToken[fileID] = sm.tokenize(sessInfo, file)
+		token := sm.tokenize(sessInfo, file)
+		files[fileID].Token = token
+		fileToToken[fileID] = token
 		idToFile[fileID] = file
 	}
 	sm.lock.Lock()
