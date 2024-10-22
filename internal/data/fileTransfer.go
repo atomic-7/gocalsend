@@ -10,15 +10,16 @@ type MetaData struct {
 }
 
 type File struct {
-	ID       string    `json:"id"`
-	FileName string    `json:"fileName"`
-	Size     int       `json:"size"`
-	FileType string    `json:"fileType"`
-	Sha256   string    `json:"sha256"`   // nullable
-	Preview  string    `json:"preview"`  // nullable
-	Metadata *MetaData `json:"metadata"` // nullable
-	Done     bool      `json:"-"`
-	Token    string    `json:"-"`
+	ID          string    `json:"id"`
+	FileName    string    `json:"fileName"`
+	Size        int       `json:"size"`
+	FileType    string    `json:"fileType"`
+	Sha256      string    `json:"sha256"`   // nullable
+	Preview     string    `json:"preview"`  // nullable
+	Metadata    *MetaData `json:"metadata"` // nullable
+	Done        bool      `json:"-"`
+	Token       string    `json:"-"`
+	Destination string    `json:"-"`
 }
 
 type PreparePayload struct {
