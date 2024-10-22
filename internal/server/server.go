@@ -100,16 +100,20 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 		// TODO: Check for malicious url parameters
 		if !r.Form.Has("sessionId") || !r.Form.Has("fileId") || !r.Form.Has("token") {
 			log.Printf("Req %s had invalid url params\n", r.URL)
+			log.Printf("sessionID: %s | fileID: %s | token: %s", r.Form.Get("sessionId"), r.Form.Get("fileId"), r.Form.Get("token"))
 			w.WriteHeader(400)
+			return
 		}
 		if _, ok := sman.Sessions[r.Form.Get("sessionId")]; !ok {
 			log.Printf("Invalid session %s\n", r.Form.Get("sessionId"))
 			w.WriteHeader(403)
+			return
 		}
 		sess := sman.Sessions[r.Form.Get("sessionId")]
 		if _, ok := sess.Files[r.Form.Get("fileId")]; !ok {
 			log.Printf("Invalid fileid %s\n", r.Form.Get("fileId"))
 			w.WriteHeader(403)
+			return
 		}
 
 		data, err := io.ReadAll(r.Body)
@@ -121,8 +125,7 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 		// need to do hash sum validation if hash is available
 		log.Printf("Content-Type: %s", r.Header.Get("Content-Type"))
 		log.Println("DATA:")
-		log.Println(string(data))
-
+		fmt.Println(string(data))
 	})
 }
 
