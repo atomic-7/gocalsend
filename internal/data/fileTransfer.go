@@ -12,7 +12,7 @@ type MetaData struct {
 type File struct {
 	ID          string    `json:"id"`
 	FileName    string    `json:"fileName"`
-	Size        int       `json:"size"`
+	Size        int64       `json:"size"`
 	FileType    string    `json:"fileType"`
 	Sha256      string    `json:"sha256"`   // nullable
 	Preview     string    `json:"preview"`  // nullable
