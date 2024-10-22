@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/atomic-7/gocalsend/internal/data"
@@ -55,7 +56,7 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 	sm.Sessions[sessInfo.SessionID] = &Session{
 		SessionID: sessID,
 		Files:     idToFile,
-		Finished:  0,
+		Finished:  len(idToFile),
 	}
 	sm.lock.Unlock()
 	return sessInfo
@@ -70,20 +71,26 @@ func (sm *SessionManager) CancelSession(sessionID string) {
 	}
 }
 
+// Finish processing a file. References to sessions can become invalid after calling this if the entire session is finished as well
 func (sm *SessionManager) FinishFile(sessID string, fileID string) error {
 	sm.lock.Lock()
-	defer sm.lock.Unlock()
 	if _, ok := sm.Sessions[sessID]; !ok {
 		return errors.New("Invalid session id")
 	}
+	sm.lock.Unlock()
 	sess := sm.Sessions[sessID]
 	sess.lock.Lock()
 	defer sess.lock.Unlock()
 	if _, ok := sess.Files[fileID]; !ok {
 		return errors.New("Invalid file id")
 	}
-	sess.Files[fileID].Done = true
-	sess.Finished += 1
+	if !sess.Files[fileID].Done {
+		sess.Files[fileID].Done = true
+		sess.Finished -= 1
+	}
+	if sess.Finished <= 0 {
+		sm.FinishSession(sess.SessionID)
+	}
 	return nil
 }
 
@@ -91,4 +98,5 @@ func (sm *SessionManager) FinishSession(sessionId string) {
 	sm.lock.Lock()
 	delete(sm.Sessions, sessionId)
 	sm.lock.Unlock()
+	log.Printf("Finished session %s", sessionId)
 }
