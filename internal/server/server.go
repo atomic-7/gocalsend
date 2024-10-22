@@ -51,6 +51,7 @@ func createPrepareUploadHandler(sman *SessionManager) http.Handler {
 		// 	fmt.Printf("[File] %s: %v\n", fk, fv)
 		// 	files[fk] = fmt.Sprintf("TOK:%s", fv)
 		// }
+		// maybe track the client to which this session belongs?
 		sess := sman.CreateSession(payload.Files)
 		for fid, tok := range sess.Files {
 			fmt.Printf("[File] %s: TOK(%s)\n", fid, tok)
@@ -121,7 +122,7 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 		}
 		file := sess.Files[fileID]
 		if file.Token != token {
-			log.Printf("Valid session and id with invalid token: %s != %s\n", sess.Files[fileID].Token, token)
+			log.Printf("Valid session and id with invalid token: %s != %s\n", file.Token, token)
 			w.WriteHeader(500)
 			return
 		}

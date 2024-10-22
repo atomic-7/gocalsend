@@ -1,7 +1,7 @@
 OUTPUT=./build
 BINARY_NAME=gocalsend
 
-all: clean build multicaster dummyep
+all: clean build uploader multicaster dummyep
 
 setup:
 	mkdir -p ${OUTPUT}
@@ -26,3 +26,6 @@ multicaster: setup
 
 dummyep: setup
 	go build -o ${OUTPUT}/dummyep ./cmd/dummyEndpoint
+
+uploader: setup
+	go build -o ${OUTPUT}/uploader ./cmd/uploader
