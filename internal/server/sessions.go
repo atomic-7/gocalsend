@@ -9,6 +9,7 @@ import (
 )
 
 type SessionManager struct {
+	BasePath string
 	Serial   int
 	Sessions map[string]*Session
 	lock     sync.Mutex
@@ -21,8 +22,9 @@ type Session struct {
 	lock      sync.Mutex
 }
 
-func NewSessionManager() *SessionManager {
+func NewSessionManager(basePath string) *SessionManager {
 	return &SessionManager{
+		BasePath: basePath,
 		Serial:   1,
 		Sessions: make(map[string]*Session),
 	}
@@ -41,9 +43,10 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 		SessionID: sessID,
 		Files:     fileToToken,
 	}
+	// TODO: Check if there are already existing files with the same name in the BasePath
 	for fileID, file := range files {
 		files[fileID].ID = fileID
-		fileToToken[fileID] =  sm.tokenize(sessInfo, file)
+		fileToToken[fileID] = sm.tokenize(sessInfo, file)
 		idToFile[fileID] = file
 	}
 	sm.lock.Lock()
