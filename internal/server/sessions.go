@@ -16,6 +16,7 @@ type SessionManager struct {
 	lock     sync.Mutex
 }
 
+// maybe track which peer this session belongs to. Needed to check for 403
 type Session struct {
 	SessionID string
 	Files     map[string]*data.File //map between file ids and file structs
@@ -32,7 +33,7 @@ func NewSessionManager(basePath string) *SessionManager {
 }
 
 func (sm *SessionManager) tokenize(sess *data.SessionInfo, file *data.File) string {
-	return fmt.Sprintf("%s#%s", sess.SessionID, file.ID)
+	return fmt.Sprintf("%s+%s", sess.SessionID, file.ID)
 }
 
 func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.SessionInfo {
@@ -60,6 +61,22 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 	}
 	sm.lock.Unlock()
 	return sessInfo
+}
+
+func (sm *SessionManager) RegisterSession(sess *data.SessionInfo, files map[string]*data.File) string {
+	sm.Serial += 1
+	for fileID, file := range files {
+		file.Token = sess.Files[fileID]
+	}
+	sm.lock.Lock()
+	sessID :=fmt.Sprintf("gclsnd-client-%d", sm.Serial)
+	sm.Sessions[sessID] = &Session{
+		SessionID: sess.SessionID,
+		Files: files,
+		Finished: len(files),
+	}
+	sm.lock.Unlock()
+	return  sessID
 }
 
 func (sm *SessionManager) CancelSession(sessionID string) {
