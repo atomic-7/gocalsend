@@ -104,7 +104,15 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 		Info:  cl.node,
 		Files: idmap,
 	}
-	url := fmt.Sprintf("http://%s:%d/api/localsend/v2/prepare-upload", peer.IP, peer.Port)
+	endpoint, err := url.Parse("/api/localsend/v2/prepare-upload")
+	if err != nil {
+		log.Fatal("Failed to parse endpoint string: ", err)
+	}
+	endpoint.Host = fmt.Sprintf("%s:%d", peer.IP, peer.Port)
+	endpoint.Scheme = "http"
+	if peer.Protocol == "https" {
+		endpoint.Scheme = "https"
+	}
 	jsonPayload, err := json.Marshal(payload)
 
 	if err != nil {
@@ -114,7 +122,7 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 	if peer.Protocol == "https" {
 		client = cl.tlsclient
 	}
-	resp, err := client.Post(url, "application/json", bytes.NewReader(jsonPayload))
+	resp, err := client.Post(endpoint.String(), "application/json", bytes.NewReader(jsonPayload))
 	if err != nil {
 		log.Printf("Error sending prepare-upload payload: %v\n", err)
 		return "", err
@@ -174,6 +182,7 @@ func (cl *Uploader) singleUpload(peer *data.PeerInfo, sessID string, file *data.
 
 	client := cl.client
 	if peer.Protocol == "https" {
+		base.Scheme = "https"
 		client = cl.tlsclient
 	}
 	resp, err := client.Post(base.String(), "Content-Type:application/octet-stream", fh)

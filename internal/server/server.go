@@ -242,7 +242,7 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 
 	var srv http.Server
 	port := fmt.Sprintf(":%d", localNode.Port)
-	fmt.Printf("Server running at %d\n", localNode.Port)
+	log.Printf("Server running at %d with %s\n", localNode.Port, localNode.Protocol)
 
 	// Might have to use InsecureSkipVerify here with a VerifyConnection function to check against the known fingerprints?
 	// TODO: Look into VerifyConnection
