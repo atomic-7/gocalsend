@@ -2,34 +2,55 @@ package uploader
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/atomic-7/gocalsend/internal/data"
+	"github.com/atomic-7/gocalsend/internal/server"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"github.com/atomic-7/gocalsend/internal/server"
 	"time"
 )
 
 type Uploader struct {
-	node   *data.PeerInfo
-	client *http.Client
+	node    *data.PeerInfo
+	client  *http.Client
+	tlsclient *http.Client
 	sessMan *server.SessionManager
 }
 
+// node is the peerinfo of the local node
 func CreateUploader(node *data.PeerInfo) *Uploader {
 	log.Println("Creating client")
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			ResponseHeaderTimeout: time.Duration(2 * time.Second),
+		},
+		Timeout: time.Duration(2 * time.Second),
+	}
+	tlsclient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+			ResponseHeaderTimeout: time.Duration(2 * time.Second),
+		},
+		Timeout: time.Duration(2 * time.Second),
+	}
 	return &Uploader{
-		node: node,
-		client: &http.Client{},
+		node:    node,
+		client:  client,
+		tlsclient: tlsclient,
 		sessMan: server.NewSessionManager("/home/atomc/Downloads/gocalsend"),
 	}
 }
 
+// peer is the peerinfo of the target remote, files is a list of filepaths
 func (cl *Uploader) UploadFiles(peer *data.PeerInfo, files []string) error {
 
 	sessionID, err := cl.prepareUpload(peer, files)
@@ -76,7 +97,6 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 				Accessed: time.Now(),
 			},
 		}
-
 	}
 	payload := data.PreparePayload{
 		Info:  cl.node,
@@ -88,7 +108,11 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 	if err != nil {
 		log.Fatal("Failed to marshal prep-upload data: ", err)
 	}
-	resp, err := cl.client.Post(url, "application/json", bytes.NewReader(jsonPayload))
+	client := cl.client
+	if peer.Protocol == "https" {
+		client = cl.tlsclient
+	}
+	resp, err := client.Post(url, "application/json", bytes.NewReader(jsonPayload))
 	if err != nil {
 		log.Printf("Error sending prepare-upload payload: %v\n", err)
 		return "", err
@@ -115,7 +139,6 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 	if err != nil {
 		log.Fatal("Failed to read prep-upload response: ", err)
 	}
-	log.Println(string(respBytes))
 	var sessInfo data.SessionInfo
 	err = json.Unmarshal(respBytes, &sessInfo)
 	if err != nil {
@@ -142,11 +165,16 @@ func (cl *Uploader) singleUpload(peer *data.PeerInfo, sessID string, file *data.
 	base.RawQuery = params.Encode()
 
 	fh, err := os.Open(file.Destination)
+	defer fh.Close()
 	if err != nil {
 		log.Fatal("Failed to open file for upload: ", err)
 	}
 
-	resp, err := cl.client.Post(base.String(), "Content-Type:application/octet-stream", fh)
+	client := cl.client
+	if peer.Protocol == "https" {
+		client = cl.tlsclient
+	}
+	resp, err := client.Post(base.String(), "Content-Type:application/octet-stream", fh)
 	if err != nil {
 		log.Printf("Failed to send the file to the server: %v\n", err)
 		return err
