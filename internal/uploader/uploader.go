@@ -27,20 +27,22 @@ type Uploader struct {
 func CreateUploader(node *data.PeerInfo) *Uploader {
 	log.Println("Creating client")
 
+	// TODO: Look into cloning the default transport
+	// https://stackoverflow.com/questions/12122159/how-to-do-a-https-request-with-bad-certificate
 	client := &http.Client{
 		Transport: &http.Transport{
-			ResponseHeaderTimeout: time.Duration(2 * time.Second),
+			ResponseHeaderTimeout: time.Duration(60 * time.Second),
 		},
-		Timeout: time.Duration(2 * time.Second),
+		Timeout: time.Duration(120 * time.Second),
 	}
 	tlsclient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 			},
-			ResponseHeaderTimeout: time.Duration(2 * time.Second),
+			ResponseHeaderTimeout: time.Duration(60 * time.Second),
 		},
-		Timeout: time.Duration(2 * time.Second),
+		Timeout: time.Duration(120 * time.Second),
 	}
 	return &Uploader{
 		node:    node,
