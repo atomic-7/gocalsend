@@ -27,7 +27,6 @@ func createPrepareUploadHandler(sman *SessionManager) http.Handler {
 		// 429 Too many requests
 		// 500 Server error
 		// TODO: Use ParseForm to get pin, it only reads the body when content-type is urlencoded
-		// TODO: adjust error codes
 		payload := &data.PreparePayload{
 			Files: make(map[string]*data.File),
 		}
@@ -46,28 +45,22 @@ func createPrepareUploadHandler(sman *SessionManager) http.Handler {
 		log.Printf("Received upload prep info: %v\n", payload.Info)
 		log.Printf("Files: %v\n", payload.Files)
 		log.Println("Files to tokens")
-		// files := make(map[string]string)
-		// for fk, fv := range payload.Files {
-		// 	fmt.Printf("[File] %s: %v\n", fk, fv)
-		// 	files[fk] = fmt.Sprintf("TOK:%s", fv)
-		// }
 		// maybe track the client to which this session belongs?
 		sess := sman.CreateSession(payload.Files)
 		for fid, tok := range sess.Files {
 			fmt.Printf("[File] %s: TOK(%s)\n", fid, tok)
 		}
 
-		// session := &data.SessionInfo{
-		// 	SessionID: "not implemented yet",
-		// 	Files:     files,
-		// }
 		resp, err := json.Marshal(sess)
 		if err != nil {
 			w.WriteHeader(500)
-			log.Fatal("Failed to marshal the example response: ", err)
+			log.Fatal("Failed to marshal the session: ", err)
 		}
-		w.Write(resp)
-		// w.WriteHeader(403) // reject all requests for now
+		_, err = w.Write(resp)
+		if err != nil {
+			log.Printf("Failed to send the payload: %v\n", err)
+			return
+		}
 	})
 }
 
@@ -116,6 +109,7 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 			return
 		}
 		sess := sman.Sessions[sessID]
+		// TODO: Check if the sending peer is associated with this session in the session manager
 		if _, ok := sess.Files[fileID]; !ok {
 			log.Printf("Invalid fileid %s\n", fileID)
 			w.WriteHeader(403)
@@ -145,6 +139,7 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 			w.WriteHeader(500)
 			return
 		}
+		// Not a deferred close to be able to catch errors that might happen when closing a file after writing 
 		err = osFile.Close()
 		if err != nil {
 			log.Printf("Failed to close file %s: %v\n", file.FileName, err)
