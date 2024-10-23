@@ -97,7 +97,6 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 						pm := *peers.GetMap()
 						defer peers.ReleaseMap()
 						log.Printf("PM: %v\n", pm)
-						// TODO: analyze error, if the error could be due to their api endpoint not responding, register via mc
 						log.Fatal("Sending node info to peer failed: ", err)
 						RegisterViaMulticast(info, multicastAddr)
 					}
