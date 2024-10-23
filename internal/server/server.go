@@ -90,6 +90,7 @@ func SessionReader(w http.ResponseWriter, r *http.Request) {
 	for fk, fv := range sess.Files {
 		fmt.Printf("[File] %s : %v\n", fk, fv)
 	}
+	// Localsend Phone Client: type 'String' is not a subtype of type 'Map<String, dynamic>'
 }
 
 func createUploadHandler(sman *SessionManager) http.Handler {
@@ -153,6 +154,24 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 
 		log.Printf("[%s] Downloaded %s to %s", sess.SessionID, file.FileName, path)
 		sman.FinishFile(sess.SessionID, fileID)
+	})
+}
+
+func createCancelHandler(sman *SessionManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err := r.ParseForm()
+		if err != nil {
+			log.Printf("Failed to parse query parameters for cancel request: %v\n", err)
+			w.WriteHeader(500)
+			return
+		}
+		if !r.Form.Has("sessionId") {
+			log.Printf("Cancel request without session id")
+			w.WriteHeader(400)
+			return
+		}
+		sessID := r.Form.Get("sessionId")
+		sman.CancelSession(sessID)
 	})
 }
 
