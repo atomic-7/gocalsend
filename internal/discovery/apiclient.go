@@ -12,7 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/atomic-7/gocalsend/internal/data"
@@ -55,20 +55,21 @@ func NewRegistratinator(localNode *data.PeerInfo) *Registratinator {
 	}
 }
 
-func (regi *Registratinator) registerClient(ctx context.Context, url string) error {
+// Send a register request to the specified url. Also used to send requests to peers that are unknown
+func (regi *Registratinator) registerClient(ctx context.Context, regurl *url.URL) error {
 
-	log.Printf("Using: %s, sending %d bytes", url, len(regi.Payload))
+	log.Printf("Using: %s, sending %d bytes", regurl.String(), len(regi.Payload))
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(regi.Payload))
+	req, err := http.NewRequestWithContext(ctx, "POST", regurl.String(), bytes.NewReader(regi.Payload))
 	if err != nil {
-		log.Fatal("Error creating post request to %s", url)
+		log.Fatal("Error creating post request to %s", regurl.String())
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept-Content", "application/json")
 	req.Header.Set("User-Agent", "go1.23.0 linux/amd64")
-	req.Close = true
+	// req.Close = true
 	var resp *http.Response
-	if strings.HasPrefix(url, "https") {
+	if regurl.Scheme == "https" {
 		resp, err = regi.tlsClient.Do(req)
 	} else {
 		resp, err = regi.client.Do(req)
@@ -119,9 +120,18 @@ func (regi *Registratinator) registerClient(ctx context.Context, url string) err
 // Send a post request to /api/localsend/v2/register with the node data
 func (regi *Registratinator) RegisterAt(ctx context.Context, peer *data.PeerInfo) error {
 
-	// TODO: Verify that peer.Protocol is not a malicious string
-	url := fmt.Sprintf("%s://%s:%d/api/localsend/v2/register", peer.Protocol, peer.IP, peer.Port)
-	return regi.registerClient(ctx, url)
+	regURL,err := url.Parse("/api/localsend/v2/register")
+	if err != nil {
+		log.Fatal(err)
+	}
+	regURL.Host = fmt.Sprintf("%s:%d", peer.IP, peer.Port)
+	if peer.Protocol == "http" {
+		regURL.Scheme = "http"
+	} else {
+		regURL.Scheme = "https"
+	}
+
+	return regi.registerClient(ctx, regURL)
 }
 
 // Falback fallback: try registering by hitting every live ip in the subnet
@@ -146,9 +156,15 @@ func (regi *Registratinator) RegisterAtSubnet(ctx context.Context, knownPeers *d
 		urls = append(urls, &addr)
 	}
 
+	regURL, err := url.Parse("/api/localsend/v2/register")
+	if err != nil {
+		log.Fatal(err)
+	}
+	regURL.Scheme = "http"
 	// TODO: Optimize with waitgroup, currently each timeout runs out completely before moving on to the next address
 	for _, addr := range(urls[100:110]) {
-		err := regi.registerClient(ctx, fmt.Sprintf("http://%s:53317/api/localsend/v2/register", addr.String()))
+		regURL.Host = fmt.Sprintf("%s:53317", addr.String())
+		err := regi.registerClient(ctx, regURL)
 		if err != nil {
 			log.Printf("[SUBREG] Could not reach %s\n", addr.String())	
 		}
