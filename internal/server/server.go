@@ -56,6 +56,7 @@ func createPrepareUploadHandler(sman *SessionManager) http.Handler {
 			w.WriteHeader(500)
 			log.Fatal("Failed to marshal the session: ", err)
 		}
+		w.Header().Add("Content-Type", "application/json")
 		_, err = w.Write(resp)
 		if err != nil {
 			log.Printf("Failed to send the payload: %v\n", err)
@@ -230,6 +231,7 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 	infoHandler := createInfoHandler(jsonBuf)
 	prepUploadHandler := createPrepareUploadHandler(sessionManager)
 	uploadHandler := createUploadHandler(sessionManager)
+	cancelHandler := createCancelHandler(sessionManager)
 	mux := http.NewServeMux()
 	mux.Handle("/api/localsend/v2/register", createRegisterHandler(localNode, peers))
 	mux.Handle("/api/localsend/v1/info", infoHandler)
@@ -237,6 +239,7 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 	mux.Handle("/api/localsend/v2/prepare-upload", prepUploadHandler)
 	mux.Handle("/api/localsend/v1/upload", uploadHandler)
 	mux.Handle("/api/localsend/v2/upload", uploadHandler)
+	mux.Handle("/api/localsend/v2/cancel", cancelHandler)
 	mux.HandleFunc("/testing/sessions", SessionReader)
 	mux.HandleFunc("/", reqLogger)
 
