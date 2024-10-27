@@ -95,6 +95,7 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 		// 500 Server error
 		r.ParseForm()
 		// TODO: Check for malicious url parameters
+		// TODO: Use http.Error instead of write header for better feedback for requests
 		if !r.Form.Has("sessionId") || !r.Form.Has("fileId") || !r.Form.Has("token") {
 			log.Printf("Req %s had invalid url params\n", r.URL)
 			log.Printf("sessionID: %s | fileID: %s | token: %s", r.Form.Get("sessionId"), r.Form.Get("fileId"), r.Form.Get("token"))
@@ -125,6 +126,7 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 		path := sman.BasePath
 		if file.Destination != "" {
 			path = file.Destination
+			// TODO: Create potentially missing folders 
 		}
 
 		osFile, err := os.Create(path + "/" + file.FileName)
@@ -161,7 +163,7 @@ func createCancelHandler(sman *SessionManager) http.Handler {
 			w.WriteHeader(500)
 			return
 		}
-		if !r.Form.Has("sessionId") {
+		if !r.Form.Has("sessionId") {	// It seems that the reference implementation does not send a sessionId to cancel?
 			log.Printf("Cancel request without session id")
 			w.WriteHeader(400)
 			return

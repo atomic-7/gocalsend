@@ -14,7 +14,7 @@ type File struct {
 	FileName    string    `json:"fileName"`
 	Size        int64       `json:"size"`
 	FileType    string    `json:"fileType"`
-	Sha256      string    `json:"sha256"`   // nullable
+	Sha256      string    `json:"sha256"`   // nullable, look into omitempty
 	Preview     string    `json:"preview"`  // nullable
 	Metadata    *MetaData `json:"metadata"` // nullable
 	Done        bool      `json:"-"`
@@ -29,5 +29,5 @@ type PreparePayload struct {
 
 type SessionInfo struct {
 	SessionID string            `json:"sessionId"`
-	Files     map[string]string `json:"files"`
+	Files     map[string]string `json:"files"`	// fileid -> token
 }

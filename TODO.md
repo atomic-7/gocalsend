@@ -12,10 +12,8 @@
 
 - [] Encryption
 	- [x] generate a certificate -> https://eli.thegreenplace.net/2021/go-https-servers-with-tls/
-	- [] encrypt a file using the certificate
-    - [] decrypt a file using a peers certificate <- should be transparent using https
-    encryption and decryption should just be tls
-
+	- [x] encrypt a file using the certificate
+	- [] Try to hook into the tls handshake and see if the peer cert can be added to the trusted pool if the sha256 of the cert matches the fingerprint
 - [] Protocol parsing
     - [] support version 1
     - [] support version 2 (https only)
@@ -34,7 +32,7 @@
 - [x] Receive multiple files
 	- [x] File sink: maintain a list of received files (session manager)
 - [] Send cmdline arg text
-- [] Send a single file
+- [x] Send a single file
     - [x] send post request to target/api/localsend/v2/prepare-upload
         {"info":"<local node info>", "files": { "some-file-id":{..}, "other-file-id":{}}}
     - [x] recieve session id and file tokens as a response
@@ -43,12 +41,19 @@
 
 - [] cancel session
     - [x] implement /api/localsend/v2/cancel?sessionId="<sessionId>"
+	- the reference client does not seem to send a sessionId?
     - [] maybe try to get hold of currently active transfers belonging to the session and cancel
 
 - [] Reverse File transfer for when localsend is not available on the client
 - [] pin support
 - [] TUI with the charm libraries
+- [] Progress display
+    - [] provide hooks to the upload handler so it can report the progress to the ui?
 
+- [] Testing
+    - [] End to End tests for two clients on the same machine
+	- communication with ref peers seems to work but not with gocalsend peers?
+    
 
 ## CLI (shortcut to gclsnd?)
 ´gclsnd ls`
