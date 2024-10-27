@@ -21,7 +21,7 @@ func main() {
 		DeviceType:  "headless",
 		DeviceModel: "cli",
 		Fingerprint: "NONONONONO",
-		Protocol:    "https",
+		Protocol:    "http",
 		Download:    false,
 		Announce:    false,
 		Port:        53320,
@@ -29,7 +29,9 @@ func main() {
 	}
 
 	var peerIP int
+	var useTLS bool
 	flag.IntVar(&peerIP, "peer", 77, "Peer in the 192.168.117.255/24 subnet")
+	flag.BoolVar(&useTLS, "usetls", true, "encrypt connection with tls")
 	flag.Parse()
 
 	// TODO: make this part of main localsend
@@ -41,21 +43,21 @@ func main() {
 		Version:     "2.0",
 		DeviceType:  "Smartphone",
 		Fingerprint: "no idea",
-		Protocol:    "https",
+		Protocol:    "http",
 		Download:    false,
 		Announce:    false,
 		Port:        53317,
 		//IP:          net.IPv4(127, 0, 0, 1),
 		IP: net.IPv4(192, 168, 117, byte(peerIP)),
 	}
-
 	credDir := "./cert"
 	certName := "cert.pem"
 	keyName := "key.pem"
-	useTLS := true
 	var tlsInfo *data.TLSPaths
 	if useTLS {
 		log.Println("Setting up https")
+		node.Protocol = "https"
+		peer.Protocol = "https"
 		tlsInfo = data.CreateTLSPaths(credDir, certName, keyName)
 		err := encryption.SetupTLSCerts(node.Alias, tlsInfo)
 		if err != nil {
