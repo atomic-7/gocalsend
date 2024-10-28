@@ -9,7 +9,7 @@ import (
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/server"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -25,7 +25,7 @@ type Uploader struct {
 
 // node is the peerinfo of the local node
 func CreateUploader(node *data.PeerInfo) *Uploader {
-	log.Println("Creating client")
+	slog.Debug("Creating client")
 
 	// TODO: Look into cloning the default transport
 	// https://stackoverflow.com/questions/12122159/how-to-do-a-https-request-with-bad-certificate
@@ -57,15 +57,16 @@ func (cl *Uploader) UploadFiles(peer *data.PeerInfo, files []string) error {
 
 	sessionID, err := cl.prepareUpload(peer, files)
 	if err != nil {
-		log.Fatal("Failed uploading: ", err)
+		slog.Error("failed to upload file", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	sess := cl.sessMan.Sessions[sessionID]
 	for _, file := range sess.Files {
-		log.Printf("Uploading %s", file.FileName)
+		slog.Info("uploading file", slog.String("file", file.FileName))
 		err = cl.singleUpload(peer, sess.SessionID, file)
 		if err != nil {
-			log.Printf("Failed to upload %s: %v", file.FileName, err)
+			slog.Error("failed to upload", slog.String("file", file.FileName), slog.Any("error", err))
 		}
 		cl.sessMan.FinishFile(sessionID, file.ID)
 	}
@@ -84,7 +85,7 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 	for _, path := range filePaths {
 		info, err := os.Stat(path)
 		if err != nil {
-			log.Printf("Failed to stat %s: %v", path, err)
+			slog.Error("Failed to stat", slog.String("file", path), slog.Any("error", err))
 			return "", err
 		}
 		fileName := info.Name()
@@ -106,7 +107,8 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 	}
 	endpoint, err := url.Parse("/api/localsend/v2/prepare-upload")
 	if err != nil {
-		log.Fatal("Failed to parse endpoint string: ", err)
+		slog.Error("failed to parse endpoint string", slog.Any("error", err))
+		os.Exit(1)
 	}
 	endpoint.Host = fmt.Sprintf("%s:%d", peer.IP, peer.Port)
 	endpoint.Scheme = "http"
@@ -116,7 +118,8 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 	jsonPayload, err := json.Marshal(payload)
 
 	if err != nil {
-		log.Fatal("Failed to marshal prep-upload data: ", err)
+		slog.Error("Failed to marshal prep-upload data", slog.Any("error", err))
+		os.Exit(1)
 	}
 	client := cl.client
 	if peer.Protocol == "https" {
@@ -124,7 +127,7 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 	}
 	resp, err := client.Post(endpoint.String(), "application/json", bytes.NewReader(jsonPayload))
 	if err != nil {
-		log.Printf("Error sending prepare-upload payload: %v\n", err)
+		slog.Error("error sending prepare-upload payload", slog.Any("error", err))
 		return "", err
 	}
 	if resp.StatusCode != http.StatusOK {
@@ -147,15 +150,16 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 	}
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal("Failed to read prep-upload response: ", err)
+		slog.Error("failed to read prep-upload response", slog.Any("error", err))
+		os.Exit(1)
 	}
 	var sessInfo data.SessionInfo
 	err = json.Unmarshal(respBytes, &sessInfo)
 	if err != nil {
-		log.Println("Failed to unmarshal session info for prep-upload: ", err)
+		slog.Error("failed to unmarshal session info for prep-upload", slog.Any("error", err))
 		return "", err
 	}
-	log.Printf("Received session: %v\n", sessInfo)
+	slog.Info("received session", slog.Any("session", sessInfo))
 	sessID := cl.sessMan.RegisterSession(&sessInfo, idmap)
 
 	return sessID, nil
@@ -177,7 +181,8 @@ func (cl *Uploader) singleUpload(peer *data.PeerInfo, sessID string, file *data.
 	fh, err := os.Open(file.Destination)
 	defer fh.Close()
 	if err != nil {
-		log.Fatal("Failed to open file for upload: ", err)
+		slog.Error("failed to open file for upload", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	client := cl.client
@@ -187,7 +192,7 @@ func (cl *Uploader) singleUpload(peer *data.PeerInfo, sessID string, file *data.
 	}
 	resp, err := client.Post(base.String(), "Content-Type:application/octet-stream", fh)
 	if err != nil {
-		log.Printf("Failed to send the file to the server: %v\n", err)
+		slog.Error("failed to send the file to the server", slog.Any("error", err))
 		return err
 	}
 

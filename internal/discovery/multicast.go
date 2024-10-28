@@ -3,10 +3,10 @@ package discovery
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/atomic-7/gocalsend/internal/data"
-	"log"
+	"log/slog"
 	"net"
+	"os"
 	"strings"
 )
 
@@ -14,17 +14,20 @@ import (
 func RegisterViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 	conn, err := net.Dial("udp4", multicastAdress.String())
 	if err != nil {
-		log.Fatal("Error trying to register the node via multicast: ", err)
+		slog.Error("failed to register the node via multicast", slog.Any("error", err))
+		os.Exit(1)
 	}
 	registration := node.ToAnnouncement()
 	registration.Announce = false
 	buf, err := json.Marshal(registration)
 	if err != nil {
-		log.Fatal("Error marshalling node: ", err)
+		slog.Error("Error marshalling node", slog.Any("error", err))
+		os.Exit(1)
 	}
 	_, err = conn.Write(buf)
 	if err != nil {
-		log.Fatal("Error writing node info: ", err)
+		slog.Error("Error writing node info", slog.Any("error", err))
+		os.Exit(1)
 	}
 }
 
@@ -32,15 +35,16 @@ func RegisterViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 func AnnounceViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) error {
 	conn, err := net.Dial("udp4", multicastAdress.String())
 	if err != nil {
-		log.Fatal("Error trying to announce the node via multicast: ", err)
+		slog.Error("Error trying to announce the node via multicast", slog.Any("error", err))
+		os.Exit(1)
 	}
 	buf, err := json.Marshal(node.ToAnnouncement())
 	if err != nil {
-		log.Fatal("Error marshalling node: ", err)
+		slog.Error("Error marshalling node: ", err)
 	}
 	_, err = conn.Write(buf)
 	if err != nil {
-		log.Println("Error writing node info: ", err)
+		slog.Error("Error writing node info", slog.Any("error", err))
 		return err
 	}
 	return nil
@@ -49,14 +53,15 @@ func AnnounceViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) err
 func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *data.PeerMap, registratinator *Registratinator) {
 
 	iface := GetInterface()
-	log.Printf("Selecting %s", iface.Name)
+	slog.Info("interface setup", slog.String("interface", iface.Name))
 	network := "udp4"
-	log.Printf("Listening to %s multicast group %s:%d\n", network, multicastAddr.IP.String(), multicastAddr.Port)
+	slog.Info("listening to multicast group", slog.String("network", network), slog.String("ip", multicastAddr.IP.String()), slog.Int("port", multicastAddr.Port))
 	//TODO: rewrite this to manually setup the multicast group to be able to have local packets be visible via loopback
 	mcgroup, err := net.ListenMulticastUDP(network, iface, multicastAddr)
 	defer mcgroup.Close()
 	if err != nil {
-		log.Fatal("Error connecting to multicast group: ", err)
+		slog.Error("Error connecting to multicast group", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	buf := make([]byte, iface.MTU)
@@ -65,49 +70,51 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 		n, from, err := mcgroup.ReadFromUDP(buf)
 		if n != 0 {
 			if err != nil {
-				log.Fatal("Error reading udp packet", err)
+				slog.Error("Error reading udp packet", slog.Any("error", err))
+				os.Exit(1)
 			} else {
 
 				info := &data.PeerInfo{}
 				info.IP = from.IP
 				err = json.Unmarshal(buf[:n], info) // need to specify the number of bytes read here!
 				if err != nil {
-					log.Printf("buf: %v", buf[0:400])
-					log.Fatal("Error unmarshaling json: ", err)
+					slog.Debug("raw udp packet", slog.Any("buf", buf[0:400]))
+					slog.Error("failed to unmarshal json", slog.Any("error", err))
+					continue
 				}
-				log.Printf("[MC][%s]: %s %s", from.String(), info.Alias, info.Protocol)
+				slog.Info("multicast discovery", slog.String("ip", from.String()), slog.String("alias", info.Alias), slog.String("protocol", info.Protocol))
 
 				unknownPeer := true
 				pm := *peers.GetMap()
 				if _, ok := pm[info.Fingerprint]; !ok {
-					log.Printf("[MC][PM]: Adding %s", info.Alias)
+					slog.Info("adding peer", slog.String("peer", info.Alias), slog.String("source", "multicast"))
 					pm[info.Fingerprint] = info
 				} else {
 					unknownPeer = false
-					log.Printf("[MC][PM]: Peer %s was already known", info.Alias)
+					slog.Info("received advertisement from known peer", slog.String("peer", info.Alias))
 				}
 				peers.ReleaseMap()
 
 				if info.Announce && unknownPeer {
 					// TODO: delay this. I am currently sniping a starting instance before the http server is up
-					log.Printf("Sending node info to %s", info.Alias)
+					slog.Info("sending local node info", slog.String("peer", info.Alias))
 					err := registratinator.RegisterAt(ctx, info)
 					if err != nil {
-						log.Println("Pre map lock")
+						slog.Debug("Pre map lock")
 						pm := *peers.GetMap()
 						defer peers.ReleaseMap()
-						log.Printf("PM: %v\n", pm)
-						log.Fatal("Sending node info to peer failed: ", err)
+						slog.Debug("peermap", slog.Any("map", pm))
+						slog.Error("failed to send node info to peer", slog.String("peer", info.Alias), slog.Any("error", err))
 						RegisterViaMulticast(info, multicastAddr)
 					}
 				}
-				
+
 				if !info.Announce {
-					log.Printf("[MC]: Peer %s is trying to register via multicast fallback\n", info.Alias)
+					slog.Info("incoming registry via multicast fallback", slog.String("peer", info.Alias), slog.String("source", "multicast"))
 				}
 			}
 		} else {
-			log.Println("Received empty udp packet?")
+			slog.Debug("received empty udp packet?")
 		}
 	}
 }
@@ -117,44 +124,46 @@ func GetInterface() *net.Interface {
 
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		log.Fatal("Failed getting list of interfaces: ", err)
+		slog.Error("Failed getting list of interfaces", slog.Any("error", err))
+		os.Exit(1)
 	}
 	candidates := make([]*net.Interface, 0, len(ifaces))
-	log.Println("Setting up multicast interface")
+	slog.Info("setting up multicast interface")
 	for _, ife := range ifaces {
-		
+
 		if strings.Contains(ife.Name, "lo") {
 			// TODO: Improve loopback interface detection
-			log.Println("[lo] Skip(loopback)")
+			slog.Debug("skipping interface", slog.String("interface", ife.Name), slog.String("reason", "loopback"))
 			continue
 		}
 		if strings.Contains(ife.Name, "docker") {
-			log.Printf("[%s] Skip(Docker)\n", ife.Name)
+			slog.Debug("skipping interface", slog.String("interface", ife.Name), slog.String("reason", "docker"))
 			continue
 		}
-		if ife.Flags & net.FlagUp == 0 {
-			log.Printf("[%s] Skip(Interface down)\n", ife.Name)
+		if ife.Flags&net.FlagUp == 0 {
+			slog.Debug("skipping interface", slog.String("interface", ife.Name), slog.String("reason", "down"))
 			continue
 		}
-		if ife.Flags & net.FlagRunning == 0 {
-			log.Printf("[%s] Skip(Not running)\n", ife.Name)
+		if ife.Flags&net.FlagRunning == 0 {
+			slog.Debug("skipping interface", slog.String("interface", ife.Name), slog.String("reason", "not running"))
 			continue
 		}
-		if ife.Flags & net.FlagRunning == 0 {
-			log.Printf("[%s] Skip(No multicast)\n", ife.Name)
+		if ife.Flags&net.FlagRunning == 0 {
+			slog.Debug("skipping interface", slog.String("interface", ife.Name), slog.String("reason", "no multicast"))
 		}
 		candidates = append(candidates, &ife)
 	}
 
 	switch len(candidates) {
 	case 0:
-		log.Fatal("Found no viable interface for multicast")
+		slog.Error("found no viable interface for multicast")
+		os.Exit(1)
 	case 1:
-		log.Println("Found one viable network interface")
+		slog.Debug("found one viable network interface", slog.String("interface", candidates[0].Name))
 	default:
-		log.Printf("Found %d viable network interfaces", len(candidates))
+		slog.Debug("found multiple viable network interfaces", slog.Int("num", len(candidates)))
 		for _, ife := range candidates {
-			fmt.Printf("[%s] %s\n", ife.Name, ife.Flags.String())
+			slog.Debug("interface candidate", slog.String("interface", ife.Name), slog.String("flags", ife.Flags.String()))
 		}
 	}
 	// copy out the struct so not the entire slice needs to be kept allocated

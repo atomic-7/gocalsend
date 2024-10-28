@@ -7,8 +7,9 @@ import (
 	"github.com/atomic-7/gocalsend/internal/discovery"
 	"github.com/atomic-7/gocalsend/internal/encryption"
 	"github.com/atomic-7/gocalsend/internal/server"
-	"log"
+	"log/slog"
 	"net"
+	"os"
 )
 
 func main() {
@@ -26,6 +27,14 @@ func main() {
 	flag.BoolVar(&useTLS, "usetls", true, "Use https (usetls=true) or use http (usetls=false)")
 	flag.Parse()
 
+	// TODO: use slog with charms handler
+	// slog.SetDefault()
+	logOpts := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
+	logHandler := slog.NewTextHandler(os.Stdout, logOpts)
+	slog.SetDefault(slog.New(logHandler))
+
 	// TODO: Figure out if it makes more sense to serialize this once or to have it serialized wherever it is needed
 	node := &data.PeerInfo{
 		Alias:       "Gocalsend",
@@ -34,7 +43,7 @@ func main() {
 		DeviceType:  "headless",
 		Fingerprint: "",
 		Port:        port,
-		Protocol:    "http", 
+		Protocol:    "http",
 		Download:    false,
 		IP:          nil,
 		Announce:    false,
@@ -43,19 +52,25 @@ func main() {
 	var tlsInfo *data.TLSPaths
 
 	if useTLS {
-		log.Println("Setting up https")
+		slog.Debug("setting up tls",
+			slog.String("dir", credDir),
+			slog.String("cert", certName),
+			slog.String("key", keyName),
+		)
 		tlsInfo = data.CreateTLSPaths(credDir, certName, keyName)
 		err := encryption.SetupTLSCerts(node.Alias, tlsInfo)
 		if err != nil {
-			log.Fatal("Failed to setup tls certificates")
+			slog.Error("failed to setup tls certificates")
+			os.Exit(1)
 		}
 		fingerprint, err := encryption.GetFingerPrint(tlsInfo)
 		if err != nil {
-			log.Fatal("Could not calculate fingerprint, something went wrong during certificate setup")
+			slog.Error("could not calculate fingerprint, something went wrong during certificate setup")
+			os.Exit(1)
 		}
 		node.Fingerprint = fingerprint
 		node.Protocol = "https"
-		log.Printf("Calculated fingerprint: %s", node.Fingerprint)
+		slog.Debug("finished tls setup", slog.String("fingerprint", node.Fingerprint))
 	} else {
 		//TODO: generate a random string here
 		node.Fingerprint = "nonononono"
@@ -71,7 +86,7 @@ func main() {
 	defer cancel()
 	err := discovery.AnnounceViaMulticast(node, multicastAddr)
 	if err != nil {
-		registratinator.RegisterAtSubnet(ctx,peers)
+		registratinator.RegisterAtSubnet(ctx, peers)
 	}
 	go server.StartServer(ctx, node, peers, tlsInfo)
 	discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)

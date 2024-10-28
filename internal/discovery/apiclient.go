@@ -8,11 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/atomic-7/gocalsend/internal/data"
@@ -28,7 +29,8 @@ type Registratinator struct {
 func NewRegistratinator(localNode *data.PeerInfo) *Registratinator {
 	jsonBuf, err := json.Marshal(localNode.ToPeerBody())
 	if err != nil {
-		log.Fatal("Error marshalling local node to json: ", err)
+		slog.Error("error marshalling local node to json", slog.Any("error", err))
+		os.Exit(1)
 	}
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -58,11 +60,11 @@ func NewRegistratinator(localNode *data.PeerInfo) *Registratinator {
 // Send a register request to the specified url. Also used to send requests to peers that are unknown
 func (regi *Registratinator) registerClient(ctx context.Context, regurl *url.URL) error {
 
-	log.Printf("Using: %s, sending %d bytes", regurl.String(), len(regi.Payload))
+	slog.Debug("registering via api", slog.String("url", regurl.String()), slog.Int("numBytes", len(regi.Payload)))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", regurl.String(), bytes.NewReader(regi.Payload))
 	if err != nil {
-		log.Fatal("Error creating post request to %s", regurl.String())
+		slog.Error("failed to create post request", slog.String("url", regurl.String()), slog.String("source", "registratinator"))
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept-Content", "application/json")
@@ -95,34 +97,36 @@ func (regi *Registratinator) registerClient(ctx context.Context, regurl *url.URL
 	defer resp.Body.Close()
 	if err != nil {
 		if !errors.Is(err, io.EOF) {
-			log.Println("Caught expected EOF??: ", err)
+			slog.Debug("caught expected eof??", slog.Any("error", err))
 			return err
 		}
 		if errors.Is(err, io.ErrUnexpectedEOF) {
-			log.Println("Caught unexpected EOF: ", err)
+			slog.Debug("caught unexpected eof", slog.Any("error", err))
 			return err
 		}
 	}
-	log.Printf("Response: %v", resp)
+	slog.Debug("raw registry response", slog.Any("bytes", resp))
 	if resp.ContentLength != 0 {
-		log.Printf("Peer responds with %s", string(body))
+		slog.Debug("peer text response", slog.String("response", string(body)))
 	}
 	var peerResponse data.PeerBody
 	err = json.Unmarshal(body, &peerResponse)
 	if err != nil {
-		log.Printf("Error unmarshalling response from %s: %v", peerResponse.Alias, err)
+		slog.Error("failed to unmarshal registry response", slog.String("peer", peerResponse.Alias), slog.Any("error", err))
 		return err
 	}
 
-	log.Println("Sent off local node info!")
+	slog.Debug("Sent off local node info!")
 	return nil
 }
+
 // Send a post request to /api/localsend/v2/register with the node data
 func (regi *Registratinator) RegisterAt(ctx context.Context, peer *data.PeerInfo) error {
 
-	regURL,err := url.Parse("/api/localsend/v2/register")
+	regURL, err := url.Parse("/api/localsend/v2/register")
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("unable to parse registry url", slog.String("url", "/api/localsend/v2/register"), slog.Any("error", err))
+		os.Exit(1)
 	}
 	regURL.Host = fmt.Sprintf("%s:%d", peer.IP, peer.Port)
 	if peer.Protocol == "http" {
@@ -141,15 +145,15 @@ func (regi *Registratinator) RegisterAtSubnet(ctx context.Context, knownPeers *d
 	// should probably replace this with iterating over the ip adresses bound to the used interface
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		log.Printf("Could not dial 8.8.8.8 to determine local ip addr: %v", err)
+		slog.Error("could not dial out to determine local ip address", slog.String("host", "8.8.8.8"), slog.Any("error", err))
 		return err
 	}
 	prefix, err := netip.ParsePrefix(conn.LocalAddr().(*net.UDPAddr).IP.String() + "/24")
 	if err != nil {
-		log.Printf("Error parsing prefix: %v", err)
+		slog.Error("error parsing network prefix", slog.Any("error", err))
 		return err
 	}
-	log.Printf("Prefix: %v\n", prefix)
+	slog.Debug("network prefix", slog.Any("prefix", prefix))
 	prefix = prefix.Masked()
 	urls := make([]*netip.Addr, 0, 256)
 	for addr := prefix.Addr(); prefix.Contains(addr); addr = addr.Next() {
@@ -158,15 +162,15 @@ func (regi *Registratinator) RegisterAtSubnet(ctx context.Context, knownPeers *d
 
 	regURL, err := url.Parse("/api/localsend/v2/register")
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("unable to parse registry url", slog.String("url", "/api/localsend/v2/register"), slog.Any("error", err))
 	}
 	regURL.Scheme = "http"
 	// TODO: Optimize with waitgroup, currently each timeout runs out completely before moving on to the next address
-	for _, addr := range(urls[100:110]) {
+	for _, addr := range urls[100:110] {
 		regURL.Host = fmt.Sprintf("%s:53317", addr.String())
 		err := regi.registerClient(ctx, regURL)
 		if err != nil {
-			log.Printf("[SUBREG] Could not reach %s\n", addr.String())	
+			slog.Debug("[subreg] could not reach client", slog.String("target", addr.String()))
 		}
 	}
 	return nil

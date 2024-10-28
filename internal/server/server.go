@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -14,10 +14,11 @@ import (
 )
 
 func reqLogger(w http.ResponseWriter, r *http.Request) {
-	log.Printf("RQ: %v", r)
+	slog.Info("request", slog.Any("request",r))
 }
 
 func createPrepareUploadHandler(sman *SessionManager) http.Handler {
+	logga := slog.Default().With(slog.String("handler", "prepare upload"))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 204 Finished, no file transfer needed
 		// 400 Invalid body
@@ -34,32 +35,35 @@ func createPrepareUploadHandler(sman *SessionManager) http.Handler {
 		buf, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(500)
-			log.Fatal("Could not read request body for prepare upload request: ", err)
+			logga.Error("could not read request body", slog.Any("error", err))
+			return
 		}
 		err = json.Unmarshal(buf, payload)
 		if err != nil {
 			w.WriteHeader(500)
-			log.Fatalf("Could not unmarshal payload from %v: %v ", string(buf[0:100]), err)
+			logga.Error("could not unmarshal payload", string(buf[0:100]), err)
+			return
 		}
 
-		log.Printf("Received upload prep info: %v\n", payload.Info)
-		log.Printf("Files: %v\n", payload.Files)
-		log.Println("Files to tokens")
+		logga.Debug("incoming session", slog.Any("peer", payload.Info))
+		logga.Debug("session files", slog.Any("files", payload.Files))
+		logga.Debug("Files to tokens")
 		// maybe track the client to which this session belongs?
 		sess := sman.CreateSession(payload.Files)
 		for fid, tok := range sess.Files {
-			fmt.Printf("[File] %s: TOK(%s)\n", fid, tok)
+			logga.Info("[File]", slog.String("fileID", fid), slog.String("token", tok))
 		}
 
 		resp, err := json.Marshal(sess)
 		if err != nil {
 			w.WriteHeader(500)
-			log.Fatal("Failed to marshal the session: ", err)
+			logga.Error("failed to marshal session", slog.Any("session", sess), slog.Any("error", err))
+			return
 		}
 		w.Header().Add("Content-Type", "application/json")
 		_, err = w.Write(resp)
 		if err != nil {
-			log.Printf("Failed to send the payload: %v\n", err)
+			logga.Error("failed to send the payload", slog.Any("error", err))
 			return
 		}
 	})
@@ -69,25 +73,29 @@ func SessionReader(w http.ResponseWriter, r *http.Request) {
 
 	buf, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Fatal("Failed to read request body: ", err)
+		slog.Error("failed to read request body", slog.String("handler", "session reader"), slog.Any("error", err))
+		os.Exit(1)
 	}
 
-	log.Printf("SessBody: %s\n", string(buf))
+	slog.Info("session raw string", slog.String("bytes", string(buf)))
 	//var sess *data.Session
 	sess := &data.SessionInfo{}
 	sess.Files = make(map[string]string)
 	err = json.Unmarshal(buf, sess)
 	if err != nil {
-		log.Fatal("Failed to unmarshal into session: ", err)
+		slog.Error("failed to unmarshal into session", slog.Any("error", err))
+		w.WriteHeader(400)
+		return
 	}
-	log.Printf("Received session %s", sess.SessionID)
+	slog.Info("received session", slog.String("id", sess.SessionID))
 	for fk, fv := range sess.Files {
-		fmt.Printf("[File] %s : %v\n", fk, fv)
+		slog.Info("[File]", slog.String("fileID", fk), slog.String("token", fv))
 	}
 	// Localsend Phone Client: type 'String' is not a subtype of type 'Map<String, dynamic>'
 }
 
 func createUploadHandler(sman *SessionManager) http.Handler {
+	logga := slog.Default().With(slog.String("handler", "upload"))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 400 missing parameters
 		// 403 invalid token or ip addr
@@ -97,8 +105,8 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 		// TODO: Check for malicious url parameters
 		// TODO: Use http.Error instead of write header for better feedback for requests
 		if !r.Form.Has("sessionId") || !r.Form.Has("fileId") || !r.Form.Has("token") {
-			log.Printf("Req %s had invalid url params\n", r.URL)
-			log.Printf("sessionID: %s | fileID: %s | token: %s", r.Form.Get("sessionId"), r.Form.Get("fileId"), r.Form.Get("token"))
+			logga.Error("request with invalid url parameters", slog.String("url", r.URL.String()))
+			slog.Debug("expected parameters", slog.String("sessionId", r.Form.Get("sessionId")), slog.String("fileId", r.Form.Get("fileId")), slog.String("tokekn", r.Form.Get("token")))
 			w.WriteHeader(400)
 			return
 		}
@@ -106,20 +114,20 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 		fileID := r.Form.Get("fileId")
 		token := r.Form.Get("token")
 		if _, ok := sman.Sessions[sessID]; !ok {
-			log.Printf("Invalid session %s\n", sessID)
+			logga.Error("invalid session", slog.String("sessionId", sessID))
 			w.WriteHeader(403)
 			return
 		}
 		sess := sman.Sessions[sessID]
 		// TODO: Check if the sending peer is associated with this session in the session manager
 		if _, ok := sess.Files[fileID]; !ok {
-			log.Printf("Invalid fileid %s\n", fileID)
+			logga.Error("invalid fileid", slog.String("fileId", fileID))
 			w.WriteHeader(403)
 			return
 		}
 		file := sess.Files[fileID]
 		if file.Token != token {
-			log.Printf("Valid session and id with invalid token: %s != %s\n", file.Token, token)
+			logga.Error("valid session and id with invalid token", slog.String("file token", file.Token), slog.String("url token", token))
 			w.WriteHeader(500)
 			return
 		}
@@ -132,25 +140,25 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 		osFile, err := os.Create(path + "/" + file.FileName)
 		defer osFile.Close()
 		if err != nil {
-			log.Printf("Failed to create the file %s: %v\n", path+"/"+file.FileName, err)
+			logga.Error("failed to create file ", slog.String("file", path+"/"+file.FileName), slog.Any("error", err))
 			w.WriteHeader(500)
 			return
 		}
 		_, err = osFile.ReadFrom(r.Body) // could probably also use io.Copy
 		if err != nil {
-			log.Printf("Failed to write to file %s: %v\n", file.FileName, err)
+			logga.Error("failed to write to file", slog.String("file", file.FileName), slog.Any("error", err))
 			w.WriteHeader(500)
 			return
 		}
 		// Not a deferred close to be able to catch errors that might happen when closing a file after writing 
 		err = osFile.Close()
 		if err != nil {
-			log.Printf("Failed to close file %s: %v\n", file.FileName, err)
+			logga.Error("failed to close file", slog.String("file", file.FileName), slog.Any("error", err))
 			w.WriteHeader(500)
 			return
 		}
 
-		log.Printf("[%s] Downloaded %s to %s", sess.SessionID, file.FileName, path)
+		logga.Info("file downloaded", slog.String("sessionId", sess.SessionID), slog.String("file", file.FileName), slog.String("path", path))
 		sman.FinishFile(sess.SessionID, fileID)
 	})
 }
@@ -159,12 +167,13 @@ func createCancelHandler(sman *SessionManager) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
 		if err != nil {
-			log.Printf("Failed to parse query parameters for cancel request: %v\n", err)
+			slog.Error("failed to parse query parameters for cancel request", slog.Any("error", err), slog.String("handler", "cancel"))
 			w.WriteHeader(500)
 			return
 		}
 		if !r.Form.Has("sessionId") {	// It seems that the reference implementation does not send a sessionId to cancel?
-			log.Printf("Cancel request without session id")
+			slog.Error("cancel request without session id")
+			slog.Debug("cancel query", slog.String("url", r.URL.String()), slog.String("handler", "cancel"))
 			w.WriteHeader(400)
 			return
 		}
@@ -184,7 +193,7 @@ func createInfoHandler(nodeJson []byte) http.Handler {
 		// {"alias":"Strategic Carrot","version":"2.1","deviceModel":"Linux","deviceType":"desktop","fingerprint":"1E6045836FC02E3A88B683FA47DDBD4E4CBDFD3F5C8C65136F118DFB9B0F2ACE","download":false}
 
 		r.ParseForm()
-		log.Printf("%s: %v", r.URL, r.Form)
+		slog.Info("incoming request", slog.String("url", r.URL.String()), slog.Any("form", r.Form))
 		w.Header().Add("Content-Type", "application/json")
 		w.Write(nodeJson)
 	})
@@ -193,23 +202,27 @@ func createInfoHandler(nodeJson []byte) http.Handler {
 
 // Registry seems to work when encryption is turned of for the peer, but not when active
 func createRegisterHandler(localNode *data.PeerInfo, peers *data.PeerMap) http.Handler {
+	logga := slog.Default().With(slog.String("handler", "register"))
 	regResp, err := json.Marshal(localNode.ToRegisterResponse())
 	if err != nil {
-		log.Fatal("Could not marshal local node for response to register handler: ", err)
+		logga.Error("Could not marshal local node for response to register handler: ", err)
+		os.Exit(1)
 	}
 	return http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
-		log.Printf("Incoming registry via api: %s", r.URL)
+		logga.Debug("incoming registry via api", slog.String("url", r.URL.String()))
 		buf, err := io.ReadAll(r.Body)
 		if err != nil {
-			log.Fatal("Error reading register body: ", err)
+			logga.Error("failed to read request body", slog.Any("error", err))
+			os.Exit(1)
 		}
 		var peer data.PeerInfo
 		json.Unmarshal(buf, &peer)
-		log.Printf("Registering %s via api register route", peer.Alias)
+		// TODO: maybe reuse the registratinator here?
+		logga.Info("registering peer", slog.String("peer", peer.Alias))
 		pm := *peers.GetMap()
 		defer peers.ReleaseMap()
 		if _, ok := pm[peer.Fingerprint]; ok {
-			log.Printf("%s was already a known peer", peer.Alias)
+			logga.Info("peer was already known", slog.String("peer", peer.Alias))
 		} else {
 			pm[peer.Fingerprint] = &peer
 		}
@@ -220,13 +233,15 @@ func createRegisterHandler(localNode *data.PeerInfo, peers *data.PeerMap) http.H
 func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.PeerMap, tlsInfo *data.TLSPaths) {
 
 	if peers == nil {
-		log.Fatal("error setting up server, peermap is nil")
+		slog.Error("failed to setup server", slog.String("reason", "peermap is nil"))
+		os.Exit(1)
 	}
 	jsonBuf, err := json.Marshal(localNode.ToPeerBody())
 	if err != nil {
-		log.Fatal("Error marshalling local node to json: ", err)
+		slog.Error("failed to unmarshal local node to json", slog.Any("error", err))
+		os.Exit(1)
 	}
-	log.Printf("NodeJson: %s", string(jsonBuf))
+	slog.Debug("NodeJson", slog.String("json", string(jsonBuf)))
 
 	sessionManager := NewSessionManager("/home/atomic/Downloads/gocalsend")
 
@@ -247,12 +262,13 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 
 	var srv http.Server
 	port := fmt.Sprintf(":%d", localNode.Port)
-	log.Printf("Server running at %d with %s\n", localNode.Port, localNode.Protocol)
+	slog.Info("server started", slog.Int("port", localNode.Port), slog.String("protocol", localNode.Protocol))
 
 	// Might have to use InsecureSkipVerify here with a VerifyConnection function to check against the known fingerprints?
 	// TODO: Look into VerifyConnection
+	// TODO: ErrorLog
 	if tlsInfo != nil {
-		log.Println("Setup https api")
+		slog.Debug("setting up https api")
 		srv = http.Server{
 			Addr:    port,
 			Handler: mux,
@@ -261,12 +277,13 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 				InsecureSkipVerify: true,
 			},
 		}
-		log.Fatal(srv.ListenAndServeTLS(tlsInfo.CertPath, tlsInfo.KeyPath))
+		slog.Error("server error", slog.Any("error", srv.ListenAndServeTLS(tlsInfo.CertPath, tlsInfo.KeyPath)))
+		os.Exit(1)
 	} else {
 		srv = http.Server{
 			Addr:    port,
 			Handler: mux,
 		}
-		log.Fatal(srv.ListenAndServe())
+		slog.Error("server error", slog.Any("error", srv.ListenAndServe()))
 	}
 }

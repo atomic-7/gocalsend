@@ -8,8 +8,9 @@ import (
 	"github.com/atomic-7/gocalsend/internal/encryption"
 	"github.com/atomic-7/gocalsend/internal/server"
 	"github.com/atomic-7/gocalsend/internal/uploader"
-	"log"
+	"log/slog"
 	"net"
+	"os"
 	"time"
 )
 
@@ -55,21 +56,23 @@ func main() {
 	keyName := "key.pem"
 	var tlsInfo *data.TLSPaths
 	if useTLS {
-		log.Println("Setting up https")
+		slog.Info("Setting up https")
 		node.Protocol = "https"
 		peer.Protocol = "https"
 		tlsInfo = data.CreateTLSPaths(credDir, certName, keyName)
 		err := encryption.SetupTLSCerts(node.Alias, tlsInfo)
 		if err != nil {
-			log.Fatal("Failed to setup tls certificates")
+			slog.Error("Failed to setup tls certificates")
+			os.Exit(1)
 		}
 		fingerprint, err := encryption.GetFingerPrint(tlsInfo)
 		if err != nil {
-			log.Fatal("Could not calculate fingerprint, something went wrong during certificate setup")
+			slog.Error("Could not calculate fingerprint, something went wrong during certificate setup")
+			os.Exit(1)
 		}
 		node.Fingerprint = fingerprint
 		node.Protocol = "https"
-		log.Printf("Calculated fingerprint: %s", node.Fingerprint)
+		slog.Info("Calculated fingerprint", slog.String("fingerprint", node.Fingerprint))
 	} else {
 		node.Fingerprint = "NONONONONO"
 	}
@@ -81,9 +84,10 @@ func main() {
 	defer cancel()
 	err := discovery.AnnounceViaMulticast(&node, multicastAddr)
 	if err != nil {
-		log.Fatal("Could not announce via Multicast")
+		slog.Error("Could not announce via Multicast")
+		os.Exit(1)
 	}
-	go server.StartServer(ctx, &node, peers, nil)
+	go server.StartServer(ctx, &node, peers, tlsInfo)
 	go discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
 
 	upl := uploader.CreateUploader(&node)

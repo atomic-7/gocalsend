@@ -6,12 +6,12 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"github.com/atomic-7/gocalsend/internal/data"
-	"encoding/hex"
 	"io"
-	"log"
+	"log/slog"
 	"math/big"
 	"os"
 	"time"
@@ -21,12 +21,12 @@ func GetFingerPrint(paths *data.TLSPaths) (string, error) {
 
 	file, err := os.Open(paths.CertPath)
 	if err != nil {
-		log.Println("Error opening tls certificate", err)
+		slog.Error("failed to open cert", slog.Any("error", err))
 		return "", err
 	}
 	contents, err := io.ReadAll(file)
 	if err != nil {
-		log.Println("Could not read the tls certificate from disk: ", err)
+		slog.Error("failed to read cert from disk", slog.Any("error", err))
 		return "", err
 	}
 	fingerprint := sha256.Sum256(contents)
@@ -36,7 +36,7 @@ func GetFingerPrint(paths *data.TLSPaths) (string, error) {
 func checkFile(path string) bool {
 	_, err := os.Open(path)
 	if err != nil {
-		log.Printf("Could not open %s: %v\n", path, err)
+		slog.Debug("could not open file", slog.String("file", path), slog.Any("error", err))
 		return false
 	}
 	return true
@@ -49,10 +49,13 @@ func CheckTLSFiles(certPath string, privKeyPath string) bool {
 
 func SetupTLSCerts(alias string, paths *data.TLSPaths) error {
 
-	log.Printf("Using tls cert and key in %v\n", paths)
 	// TODO: Expand this to reuse an existing private key
 	if !(checkFile(paths.KeyPath) && checkFile(paths.CertPath)) {
-		log.Println("Could not find existing certificate and private key, generating a new one")
+		slog.Debug("unable to find existing tls cert, generating new cert and key",
+			slog.String("dir", paths.Dir),
+			slog.String("cert", paths.CertPath),
+			slog.String("key", paths.KeyPath),
+		)
 		os.MkdirAll(paths.Dir, 0700)
 		cred, err := createCert(nil, alias, "localhost")
 		if err != nil {
@@ -60,7 +63,7 @@ func SetupTLSCerts(alias string, paths *data.TLSPaths) error {
 		}
 		cred.WriteCredentials(paths)
 	} else {
-		log.Println("Found existing key and certificate!")
+		slog.Debug("found existing cert and key")
 	}
 
 	return nil
@@ -87,16 +90,18 @@ func createCert(pk *rsa.PrivateKey, org string, dnsname string) (*Credentials, e
 	if pk != nil {
 		privateKey = pk
 	} else {
-		privateKey,err = rsa.GenerateKey(rand.Reader, 2045)
+		privateKey, err = rsa.GenerateKey(rand.Reader, 2045)
 		if err != nil {
-			log.Fatalf("Failed to generate private key: %v", err)
+			slog.Error("failed to generate private key", slog.Any("error", err))
+			os.Exit(1)
 		}
 	}
 
 	maxSerialNumber := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, maxSerialNumber)
 	if err != nil {
-		log.Fatalf("Failed to generate serial number: %v", err)
+		slog.Error("Failed to generate serial number", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	// Use a certificate template to construct the cert
@@ -121,23 +126,27 @@ func createCert(pk *rsa.PrivateKey, org string, dnsname string) (*Credentials, e
 	// passing the same template for both the template and the parent makes this a self signed certificate
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
 	if err != nil {
-		log.Fatalf("Failed to create certificate: %v", err)
+		slog.Error("failed to create certificate", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	// Certificate
 	pemCert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	if pemCert == nil {
-		log.Fatal("Failed to encode certificate to PEM")
+		slog.Error("failed to encode certificate to pem")
+		os.Exit(1)
 	}
 
 	// Private Key
 	privBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
-		log.Fatalf("Unable to marshal private key: %v")
+		slog.Error("unable to marshal private key", slog.Any("error", err))
+		os.Exit(1)
 	}
 	pemKey := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})
 	if pemKey == nil {
-		log.Fatal("Failed to encode private key to PEM")
+		slog.Error("failed to encode private key to pem", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	return &Credentials{
@@ -152,13 +161,13 @@ func (creds *Credentials) WriteCredentials(paths *data.TLSPaths) error {
 
 	err := os.WriteFile(paths.CertPath, creds.Cert, 0644)
 	if err != nil {
-		log.Printf("Error writing certificate to disk: %v", err)
+		slog.Error("error writing certificate to disk", slog.Any("error", err))
 		return err
 	}
 	// keep the private key private!
 	err = os.WriteFile(paths.KeyPath, creds.Key, 0600)
 	if err != nil {
-		log.Printf("Error writing private key to disk: %v", err)
+		slog.Error("error writing private key to disk", slog.Any("error", err))
 		return err
 	}
 

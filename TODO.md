@@ -1,13 +1,11 @@
 # TODO
 
-- [] Advertise local node to peers
+- [x] Advertise local node to peers
      - [x] send advertisement to multicast address via udp
-     - [] send own encryption key to peers (should be in advertisement as fingerprint)
      - [x] store answers in fingerprint->peer map
-- [] Discover peers
+- [x] Discover peers
      - [x] listen on multicast address, make sure to enable loopback so local testing becomes possible
-     - [] receive a peers encryption keys (fingerprint), add to certpool?
-     - [] hit their /api/localsend/v2/register via https
+     - [x] hit their /api/localsend/v2/register via https
      - [x] host own /api/localsend/v2/register endpoint so peers can answer to the advertisement
 
 - [] Encryption
@@ -15,15 +13,15 @@
 	- [x] encrypt a file using the certificate
 	- [] Try to hook into the tls handshake and see if the peer cert can be added to the trusted pool if the sha256 of the cert matches the fingerprint
 - [] Protocol parsing
-    - [] support version 1
-    - [] support version 2 (https only)
+    - [] support version 1 (not a priority)
+    - [] support version 2 
 
 - [] Session manager
     - [x] map between fingerprints and peers with a mutex
     - [] track which sessions belong to which peer for added security
     - [] pin validation
 
-- [] Receive a single file
+- [x] Receive a single file
     - [x] start http server, listen at /api/localsend/v2/prepare-upload
     - [x] create session and register it with session manager
     - [x] respond with session id and file tokens
@@ -50,9 +48,17 @@
 - [] Progress display
     - [] provide hooks to the upload handler so it can report the progress to the ui?
 
+- [] Logging
+    - [x] Look into structural logging with slog
+    - [x] Add log levels for debugging
+    - [] Implement LogValuer interface for some structs ?
+    - [] see if the charm logger can work with slog (it should)
+    - [] make an enum for exit codes that can be used instead of log fatal
+
 - [] Testing
     - [] End to End tests for two clients on the same machine
 	- communication with ref peers seems to work but not with gocalsend peers?
+	- works between different machines
     
 
 ## CLI (shortcut to gclsnd?)

@@ -3,7 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/atomic-7/gocalsend/internal/data"
@@ -115,5 +115,5 @@ func (sm *SessionManager) FinishSession(sessionId string) {
 	sm.lock.Lock()
 	delete(sm.Sessions, sessionId)
 	sm.lock.Unlock()
-	log.Printf("Finished session %s", sessionId)
+	slog.Info("Finished session", slog.String("sessionId", sessionId))
 }
