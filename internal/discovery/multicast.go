@@ -53,9 +53,9 @@ func AnnounceViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) err
 func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *data.PeerMap, registratinator *Registratinator) {
 
 	iface := GetInterface()
-	slog.Info("interface setup", slog.String("interface", iface.Name))
+	slog.Debug("interface setup", slog.String("interface", iface.Name))
 	network := "udp4"
-	slog.Info("listening to multicast group", slog.String("network", network), slog.String("ip", multicastAddr.IP.String()), slog.Int("port", multicastAddr.Port))
+	slog.Debug("listening to multicast group", slog.String("network", network), slog.String("ip", multicastAddr.IP.String()), slog.Int("port", multicastAddr.Port))
 	//TODO: rewrite this to manually setup the multicast group to be able to have local packets be visible via loopback
 	mcgroup, err := net.ListenMulticastUDP(network, iface, multicastAddr)
 	defer mcgroup.Close()
@@ -128,7 +128,7 @@ func GetInterface() *net.Interface {
 		os.Exit(1)
 	}
 	candidates := make([]*net.Interface, 0, len(ifaces))
-	slog.Info("setting up multicast interface")
+	slog.Debug("setting up multicast interface")
 	for _, ife := range ifaces {
 
 		if strings.Contains(ife.Name, "lo") {

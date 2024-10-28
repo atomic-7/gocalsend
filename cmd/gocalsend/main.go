@@ -7,6 +7,7 @@ import (
 	"github.com/atomic-7/gocalsend/internal/discovery"
 	"github.com/atomic-7/gocalsend/internal/encryption"
 	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/charmbracelet/log"
 	"log/slog"
 	"net"
 	"os"
@@ -19,21 +20,33 @@ func main() {
 	var keyName string
 	var credDir string
 	var useTLS bool
+	var logLevel string
 
 	flag.IntVar(&port, "port", 53317, "The port to listen for the api endpoints")
 	flag.StringVar(&certName, "cert", "cert.pem", "The filename of the tls certificate")
 	flag.StringVar(&keyName, "key", "key.pem", "The filename of the tls private key")
 	flag.StringVar(&credDir, "credentials", "./cert", "The path to the tls credentials")
 	flag.BoolVar(&useTLS, "usetls", true, "Use https (usetls=true) or use http (usetls=false)")
+	flag.StringVar(&logLevel, "loglevel", "info", "Log level can be 'info', 'debug' or 'none'")
 	flag.Parse()
 
-	// TODO: use slog with charms handler
-	// slog.SetDefault()
-	logOpts := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+	// TODO: implement log level none
+	logOpts := log.Options{
+		Level: log.DebugLevel,
 	}
-	logHandler := slog.NewTextHandler(os.Stdout, logOpts)
-	slog.SetDefault(slog.New(logHandler))
+	switch logLevel {
+	case "info":
+		logOpts.Level = log.InfoLevel
+	case "debug":
+		logOpts.Level = log.DebugLevel
+	case "none":
+		log.Warn("Log level none is not implemented yet")
+	case "default":
+		logOpts.Level = log.InfoLevel
+	}
+	// logHandler := slog.NewTextHandler(os.Stdout, logOpts)
+	charmLogger := log.NewWithOptions(os.Stdout, logOpts)
+	slog.SetDefault(slog.New(charmLogger))
 
 	// TODO: Figure out if it makes more sense to serialize this once or to have it serialized wherever it is needed
 	node := &data.PeerInfo{
