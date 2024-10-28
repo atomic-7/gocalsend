@@ -34,6 +34,7 @@ func RegisterViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) {
 // Blast node info to the multicast address
 func AnnounceViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) error {
 	conn, err := net.Dial("udp4", multicastAdress.String())
+	slog.Debug("announcing via multicast", slog.String("addr", multicastAdress.String()))
 	if err != nil {
 		slog.Error("Error trying to announce the node via multicast", slog.Any("error", err))
 		os.Exit(1)
@@ -73,7 +74,6 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 				slog.Error("Error reading udp packet", slog.Any("error", err))
 				os.Exit(1)
 			} else {
-
 				info := &data.PeerInfo{}
 				info.IP = from.IP
 				err = json.Unmarshal(buf[:n], info) // need to specify the number of bytes read here!
@@ -82,34 +82,29 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 					slog.Error("failed to unmarshal json", slog.Any("error", err))
 					continue
 				}
-				slog.Info("multicast discovery", slog.String("ip", from.String()), slog.String("alias", info.Alias), slog.String("protocol", info.Protocol))
+				slog.Debug("multicast discovery", slog.String("ip", from.String()), slog.String("alias", info.Alias), slog.String("protocol", info.Protocol))
 
-				unknownPeer := true
 				pm := *peers.GetMap()
+				if pm["self"].Fingerprint == info.Fingerprint {
+					continue
+				}
 				if _, ok := pm[info.Fingerprint]; !ok {
 					slog.Info("adding peer", slog.String("peer", info.Alias), slog.String("source", "multicast"))
 					pm[info.Fingerprint] = info
 				} else {
-					unknownPeer = false
 					slog.Info("received advertisement from known peer", slog.String("peer", info.Alias))
 				}
 				peers.ReleaseMap()
 
-				if info.Announce && unknownPeer {
+				if info.Announce {
 					// TODO: delay this. I am currently sniping a starting instance before the http server is up
 					slog.Info("sending local node info", slog.String("peer", info.Alias))
 					err := registratinator.RegisterAt(ctx, info)
 					if err != nil {
-						slog.Debug("Pre map lock")
-						pm := *peers.GetMap()
-						defer peers.ReleaseMap()
-						slog.Debug("peermap", slog.Any("map", pm))
 						slog.Error("failed to send node info to peer", slog.String("peer", info.Alias), slog.Any("error", err))
 						RegisterViaMulticast(info, multicastAddr)
 					}
-				}
-
-				if !info.Announce {
+				} else {
 					slog.Info("incoming registry via multicast fallback", slog.String("peer", info.Alias), slog.String("source", "multicast"))
 				}
 			}
