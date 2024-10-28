@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/atomic-7/gocalsend/internal/data"
 )
@@ -224,6 +226,12 @@ func createRegisterHandler(localNode *data.PeerInfo, peers *data.PeerMap) http.H
 		if _, ok := pm[peer.Fingerprint]; ok {
 			logga.Info("peer was already known", slog.String("peer", peer.Alias))
 		} else {
+			parts := strings.Split(r.RemoteAddr, ":")
+			peer.IP = net.ParseIP(parts[0])
+			if peer.IP == nil {
+				logga.Error("failed to parse peer ip", slog.Any("host", r.Host))
+				os.Exit(1)
+			}
 			pm[peer.Fingerprint] = &peer
 		}
 		writer.Write(regResp)
