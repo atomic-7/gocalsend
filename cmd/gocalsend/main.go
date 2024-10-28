@@ -27,6 +27,7 @@ func main() {
 	var command string
 	var peerAlias string
 	var lsTime int
+	var downloadBase string
 
 	flag.IntVar(&port, "port", 53317, "The port to listen for the api endpoints")
 	flag.StringVar(&certName, "cert", "cert.pem", "The filename of the tls certificate")
@@ -37,6 +38,7 @@ func main() {
 	flag.StringVar(&command, "cmd", "receive", "command to execute: rec, receive, snd, send, ls")
 	flag.StringVar(&peerAlias, "peer", "", "alias of the peer to send to. find out with gocalsend --cmd=ls")
 	flag.IntVar(&lsTime, "lstime", 4, "time to wait for peer discovery")
+	flag.StringVar(&downloadBase, "out", "", "path to where incoming files are saved")
 	flag.Parse()
 	// TODO: implement log level none
 	logOpts := log.Options{
@@ -55,6 +57,23 @@ func main() {
 	}
 	charmLogger := log.NewWithOptions(os.Stdout, logOpts)
 	slog.SetDefault(slog.New(charmLogger))
+
+	if downloadBase[0] == '~' {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			slog.Error("could not get user home directory", slog.Any("error", err))
+			os.Exit(1)
+		}
+		downloadBase = home + downloadBase[1:]
+	}
+	if downloadBase == "" {
+		downloadBase, err := os.UserHomeDir()
+		if err != nil {
+			slog.Error("could not get user home directory", slog.Any("error", err))
+			os.Exit(1)
+		}
+		downloadBase += "/Downloads/gocalsend"
+	}
 
 	// TODO: Figure out if it makes more sense to serialize this once or to have it serialized wherever it is needed
 	node := &data.PeerInfo{
@@ -113,7 +132,7 @@ func main() {
 		}
 	}
 
-	go server.StartServer(ctx, node, peers, tlsInfo)
+	go server.StartServer(ctx, node, peers, tlsInfo, downloadBase)
 	go discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
 	runAnnouncement()
 	switch command {
@@ -154,7 +173,7 @@ func main() {
 		slog.Debug("Peer", slog.Any("info", target))
 		upl := uploader.CreateUploader(node)
 		upl.UploadFiles(target, flag.Args())
-	case "rec", "receive":
+	case "rcv", "rec", "recv", "receive":
 		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
 		intervalRunner(ctx, runAnnouncement, ticker)

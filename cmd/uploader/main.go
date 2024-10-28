@@ -74,6 +74,7 @@ func main() {
 		node.Protocol = "https"
 		slog.Info("Calculated fingerprint", slog.String("fingerprint", node.Fingerprint))
 	} else {
+		//TODO: generate a random one here
 		node.Fingerprint = "NONONONONO"
 	}
 
@@ -87,7 +88,11 @@ func main() {
 		slog.Error("Could not announce via Multicast")
 		os.Exit(1)
 	}
-	go server.StartServer(ctx, &node, peers, tlsInfo)
+	outFolder, err := os.UserHomeDir()
+	if err != nil {
+		slog.Error("could not find user home directory", slog.Any("error", err))
+	}
+	go server.StartServer(ctx, &node, peers, tlsInfo, outFolder)
 	go discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
 
 	upl := uploader.CreateUploader(&node)

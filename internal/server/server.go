@@ -238,7 +238,7 @@ func createRegisterHandler(localNode *data.PeerInfo, peers *data.PeerMap) http.H
 	})
 }
 
-func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.PeerMap, tlsInfo *data.TLSPaths) {
+func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.PeerMap, tlsInfo *data.TLSPaths, downloadBase string) {
 
 	if peers == nil {
 		slog.Error("failed to setup server", slog.String("reason", "peermap is nil"))
@@ -251,7 +251,7 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 	}
 	slog.Debug("NodeJson", slog.String("json", string(jsonBuf)))
 
-	sessionManager := NewSessionManager("/home/atomic/Downloads/gocalsend")
+	sessionManager := NewSessionManager(downloadBase)
 
 	infoHandler := createInfoHandler(jsonBuf)
 	prepUploadHandler := createPrepareUploadHandler(sessionManager)
