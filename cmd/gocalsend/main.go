@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"time"
 )
 
 func main() {
@@ -29,7 +30,6 @@ func main() {
 	flag.BoolVar(&useTLS, "usetls", true, "Use https (usetls=true) or use http (usetls=false)")
 	flag.StringVar(&logLevel, "loglevel", "info", "Log level can be 'info', 'debug' or 'none'")
 	flag.Parse()
-
 	// TODO: implement log level none
 	logOpts := log.Options{
 		Level: log.DebugLevel,
@@ -44,7 +44,6 @@ func main() {
 	case "default":
 		logOpts.Level = log.InfoLevel
 	}
-	// logHandler := slog.NewTextHandler(os.Stdout, logOpts)
 	charmLogger := log.NewWithOptions(os.Stdout, logOpts)
 	slog.SetDefault(slog.New(charmLogger))
 
@@ -90,6 +89,9 @@ func main() {
 	}
 
 	peers := data.NewPeerMap()
+	pm := *peers.GetMap()
+	pm["self"] = node
+	peers.ReleaseMap()
 	registratinator := discovery.NewRegistratinator(node)
 
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
@@ -97,10 +99,29 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	err := discovery.AnnounceViaMulticast(node, multicastAddr)
-	if err != nil {
-		registratinator.RegisterAtSubnet(ctx, peers)
+
+	runAnnouncement := func() {
+		err := discovery.AnnounceViaMulticast(node, multicastAddr)
+		if err != nil {
+			registratinator.RegisterAtSubnet(ctx, peers)
+		}
 	}
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	runAnnouncement()
+	go intervalRunner(ctx, runAnnouncement, ticker)
 	go server.StartServer(ctx, node, peers, tlsInfo)
 	discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
+}
+
+func intervalRunner(ctx context.Context, f func(), ticker *time.Ticker) {
+		for {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				f()
+			}
+		}
 }
