@@ -58,15 +58,16 @@ func main() {
 	charmLogger := log.NewWithOptions(os.Stdout, logOpts)
 	slog.SetDefault(slog.New(charmLogger))
 
-	if downloadBase[0] == '~' {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			slog.Error("could not get user home directory", slog.Any("error", err))
-			os.Exit(1)
+	if downloadBase != "" {
+		if downloadBase[0] == '~' {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				slog.Error("could not get user home directory", slog.Any("error", err))
+				os.Exit(1)
+			}
+			downloadBase = home + downloadBase[1:]
 		}
-		downloadBase = home + downloadBase[1:]
-	}
-	if downloadBase == "" {
+	} else {
 		downloadBase, err := os.UserHomeDir()
 		if err != nil {
 			slog.Error("could not get user home directory", slog.Any("error", err))

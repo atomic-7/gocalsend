@@ -67,6 +67,7 @@
 
 - [] Misc
     - [] generate a random fingerprint
+    - [] translate ~ to the correct user home for all paths
     
 
 ## CLI (shortcut to gclsnd?)
