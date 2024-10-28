@@ -14,7 +14,7 @@
 	- [] Try to hook into the tls handshake and see if the peer cert can be added to the trusted pool if the sha256 of the cert matches the fingerprint
 - [] Protocol parsing
     - [] support version 1 (not a priority)
-    - [] support version 2 
+    - [x] support version 2 
 
 - [] Session manager
     - [x] map between fingerprints and peers with a mutex
@@ -29,12 +29,12 @@
         (upload route should be callable in parallel)
 - [x] Receive multiple files
 	- [x] File sink: maintain a list of received files (session manager)
-- [] Send cmdline arg text
 - [x] Send a single file
     - [x] send post request to target/api/localsend/v2/prepare-upload
         {"info":"<local node info>", "files": { "some-file-id":{..}, "other-file-id":{}}}
     - [x] recieve session id and file tokens as a response
     - [x] send post request to target/api/localsend/v2/upload?sessionId=<id>&fileId=<fileid>&token=<fileToken>
+- [] Send cmdline arg text
 - [] Send multiple files
 
 - [] cancel session
@@ -52,13 +52,21 @@
     - [x] Look into structural logging with slog
     - [x] Add log levels for debugging
     - [] Implement LogValuer interface for some structs ?
-    - [] see if the charm logger can work with slog (it should)
+    - [x] see if the charm logger can work with slog (it should)
     - [] make an enum for exit codes that can be used instead of log fatal
 
 - [] Testing
     - [] End to End tests for two clients on the same machine
 	- communication with ref peers seems to work but not with gocalsend peers?
 	- works between different machines
+    - [] Figure out unit testing for http endpoints
+
+- [] Config
+    - [] Choose a suitable config format
+    - [] use config to allow user to specify their own tls certs
+
+- [] Misc
+    - [] generate a random fingerprint
     
 
 ## CLI (shortcut to gclsnd?)
