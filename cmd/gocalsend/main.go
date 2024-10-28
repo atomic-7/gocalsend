@@ -3,15 +3,17 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/atomic-7/gocalsend/internal/data"
-	"github.com/atomic-7/gocalsend/internal/discovery"
-	"github.com/atomic-7/gocalsend/internal/encryption"
-	"github.com/atomic-7/gocalsend/internal/server"
-	"github.com/charmbracelet/log"
 	"log/slog"
 	"net"
 	"os"
 	"time"
+
+	"github.com/atomic-7/gocalsend/internal/data"
+	"github.com/atomic-7/gocalsend/internal/discovery"
+	"github.com/atomic-7/gocalsend/internal/encryption"
+	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/uploader"
+	"github.com/charmbracelet/log"
 )
 
 func main() {
@@ -22,6 +24,9 @@ func main() {
 	var credDir string
 	var useTLS bool
 	var logLevel string
+	var command string
+	var peerAlias string
+	var lsTime int
 
 	flag.IntVar(&port, "port", 53317, "The port to listen for the api endpoints")
 	flag.StringVar(&certName, "cert", "cert.pem", "The filename of the tls certificate")
@@ -29,6 +34,9 @@ func main() {
 	flag.StringVar(&credDir, "credentials", "./cert", "The path to the tls credentials")
 	flag.BoolVar(&useTLS, "usetls", true, "Use https (usetls=true) or use http (usetls=false)")
 	flag.StringVar(&logLevel, "loglevel", "info", "Log level can be 'info', 'debug' or 'none'")
+	flag.StringVar(&command, "cmd", "receive", "command to execute: rec, receive, snd, send, ls")
+	flag.StringVar(&peerAlias, "peer", "", "alias of the peer to send to. find out with gocalsend --cmd=ls")
+	flag.IntVar(&lsTime, "lstime", 4, "time to wait for peer discovery")
 	flag.Parse()
 	// TODO: implement log level none
 	logOpts := log.Options{
@@ -39,6 +47,7 @@ func main() {
 		logOpts.Level = log.InfoLevel
 	case "debug":
 		logOpts.Level = log.DebugLevel
+		logOpts.ReportCaller = true
 	case "none":
 		log.Warn("Log level none is not implemented yet")
 	case "default":
@@ -92,36 +101,76 @@ func main() {
 	pm := *peers.GetMap()
 	pm["self"] = node
 	peers.ReleaseMap()
+
 	registratinator := discovery.NewRegistratinator(node)
-
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
-	// When we multicast first, registry via our http endpoint is fine. Me calling their endpoint results in a crash because the mobile client cannot handle http and https on the same port
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 	runAnnouncement := func() {
 		err := discovery.AnnounceViaMulticast(node, multicastAddr)
 		if err != nil {
 			registratinator.RegisterAtSubnet(ctx, peers)
 		}
 	}
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
-	runAnnouncement()
-	go intervalRunner(ctx, runAnnouncement, ticker)
+
 	go server.StartServer(ctx, node, peers, tlsInfo)
-	discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
+	go discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
+	runAnnouncement()
+	switch command {
+	case "ls":
+		sleepDuration := lsTime * int(time.Second)
+		time.Sleep(time.Duration(sleepDuration))
+		pm = *peers.GetMap()
+		if len(pm) != 1 {
+			charmLogger.Printf("Peerlist:")
+			for _, peer := range pm {
+				if peer.Alias == node.Alias {
+					continue
+				}
+				charmLogger.Printf(peer.Alias)
+			}
+		} else {
+			slog.Info("Found no peers")
+		}
+
+	case "snd", "send":
+		if peerAlias == "" {
+			slog.Error("no peer specified")
+			os.Exit(1)
+		}
+		time.Sleep(3 * time.Second)
+		pm = *peers.GetMap()
+		var target *data.PeerInfo
+		for _, peer := range pm {
+			if peer.Alias == peerAlias {
+				target = peer
+			}
+		}
+		if target == nil {
+			slog.Error("Peer is not available.", slog.String("peer", peerAlias))
+			os.Exit(1)
+		}
+		peers.ReleaseMap()
+		slog.Debug("Peer", slog.Any("info", target))
+		upl := uploader.CreateUploader(node)
+		upl.UploadFiles(target, flag.Args())
+	case "rec", "receive":
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		intervalRunner(ctx, runAnnouncement, ticker)
+	default:
+		slog.Error("unknown command", slog.String("cmd", command))
+	}
 }
 
 func intervalRunner(ctx context.Context, f func(), ticker *time.Ticker) {
-		for {
-			select {
-			case <-ctx.Done():
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				f()
-			}
+	for {
+		select {
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			f()
 		}
+	}
 }
