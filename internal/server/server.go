@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/atomic-7/gocalsend/internal/data"
@@ -138,8 +139,9 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 			path = file.Destination
 			// TODO: Create potentially missing folders 
 		}
+		logga.Debug("dl path", slog.String("path", path), slog.String("name", file.FileName), slog.String("dest", file.Destination))
 
-		osFile, err := os.Create(path + "/" + file.FileName)
+		osFile, err := os.Create(filepath.Join(path, file.FileName))
 		defer osFile.Close()
 		if err != nil {
 			logga.Error("failed to create file ", slog.String("file", path+"/"+file.FileName), slog.Any("error", err))

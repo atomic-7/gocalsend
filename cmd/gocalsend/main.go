@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/atomic-7/gocalsend/internal/data"
@@ -66,15 +67,18 @@ func main() {
 				os.Exit(1)
 			}
 			downloadBase = home + downloadBase[1:]
+			downloadBase = filepath.Join(home, downloadBase[1:])
 		}
 	} else {
-		downloadBase, err := os.UserHomeDir()
+		home, err := os.UserHomeDir()
 		if err != nil {
 			slog.Error("could not get user home directory", slog.Any("error", err))
 			os.Exit(1)
 		}
-		downloadBase += "/Downloads/gocalsend"
+		slog.Debug("user home", slog.String("home", home))
+		downloadBase = filepath.Join(home, "Downloads", "gocalsend")
 	}
+	slog.Info("download folder", slog.String("out", downloadBase))
 
 	// TODO: Figure out if it makes more sense to serialize this once or to have it serialized wherever it is needed
 	node := &data.PeerInfo{
