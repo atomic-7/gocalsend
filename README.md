@@ -42,13 +42,15 @@ gocalsend --loglevel=debug
 The `none` log level will be implemented soon<sup>TM</sup>
 
 ## Building
+Building requires `make` and the go compiler. If you are running windows you can use [GnuMake32](https://gnuwin32.sourceforge.net/packages/make.htm).
 Run for a release build:
 ```
 make release
 ```
-Run for a development build with debug symbols and a bunch of odd test binaries:
+The resulting binary is `build/release/gocalsend`. The default build is in release mode, so you could also just run `make`.
+For a development build with debug symbols and a bunch of odd test binaries:
 ```
-make all
+make debug
 ```
 
 ## Related work

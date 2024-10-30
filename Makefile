@@ -1,31 +1,50 @@
-OUTPUT=./build
+OUTPUT=build
 BINARY_NAME=gocalsend
 
-all: clean build uploader multicaster dummyep
+# Windoof is such a shitshow
+SEP:=/
+RMDIR=rm -rf
+MKDIR=mkdir -p
+DIR=${OUTPUT}
+ifeq ($(OS), Windows_NT)
+	SEP=$(strip \ )
+	# define rmdir dynamically so DIR can be updated
+	RMDIR:=if exist ${DIR} rmdir
+	MKDIR:=mkdir
+	WINOPTS=/s /q 2>nul
+	EXT=.exe
+endif
+
+all: clean release
 
 setup:
-	mkdir -p ${OUTPUT}
+	${MKDIR} ${OUTPUT}
 clean:
 	go clean
-	rm -rf ${OUTPUT}
-	rm -rf ./cert
-build: setup
-	go build -o ${OUTPUT}/${BINARY_NAME} ./cmd/gocalsend
+	${RMDIR} ${OUTPUT} ${WINOPTS}
+	$(eval DIR=cert)
+	${RMDIR} cert ${WINOPTS}
+build: clean setup
+	go build -o ${OUTPUT}${SEP}${BINARY_NAME}${EXT} .${SEP}cmd${SEP}gocalsend
 
 run: build
-	${OUTPUT}/${BINARY_NAME}
-release: clean
-	mkdir -p ${OUTPUT}/release
-	go build -ldflaggs="-s -w -X" -o ${OUTPUT}/release/${BINARY_NAME}
+	${OUTPUT}${SEP}${BINARY_NAME}
+
+# todo use -X flag to put latest tag into the binary
+release: clean 
+	${MKDIR} ${OUTPUT}${SEP}release
+	go build -ldflags="-s -w" -o ${OUTPUT}${SEP}release${SEP}${BINARY_NAME}${EXT} .${SEP}cmd${SEP}${BINARY_NAME}
 
 # Utilities
-gclsnd: build
+# todo: make a build that uses no external dependencies
+#gclsnd: build
+debug: build multicaster dummyep uploader
 
 multicaster: setup
-	go build -o ${OUTPUT}/multicaster ./cmd/multicaster
+	go build -o ${OUTPUT}${SEP}multicaster${EXT} .${SEP}cmd${SEP}multicaster
 
 dummyep: setup
-	go build -o ${OUTPUT}/dummyep ./cmd/dummyEndpoint
+	go build -o ${OUTPUT}${SEP}dummyep${EXT} .${SEP}cmd${SEP}dummyEndpoint
 
 uploader: setup
-	go build -o ${OUTPUT}/uploader ./cmd/uploader
+	go build -o ${OUTPUT}${SEP}uploader${EXT} .${SEP}cmd${SEP}uploader
