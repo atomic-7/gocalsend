@@ -141,6 +141,11 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 		}
 		logga.Debug("dl path", slog.String("path", path), slog.String("name", file.FileName), slog.String("dest", file.Destination))
 
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			logga.Error("failed to create output directory", slog.String("out", path))
+		}
+
 		osFile, err := os.Create(filepath.Join(path, file.FileName))
 		defer osFile.Close()
 		if err != nil {
