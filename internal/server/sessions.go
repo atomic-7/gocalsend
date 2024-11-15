@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -33,7 +35,8 @@ func NewSessionManager(basePath string) *SessionManager {
 }
 
 func (sm *SessionManager) tokenize(sess *data.SessionInfo, file *data.File) string {
-	return fmt.Sprintf("%s+%s", sess.SessionID, file.ID)
+	token := fmt.Sprintf("%s.%s", sess.SessionID, file.ID)
+	return hex.EncodeToString(sha256.New().Sum([]byte(token)))
 }
 
 func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.SessionInfo {
