@@ -82,7 +82,6 @@ type RegisterResponse struct {
 	Download    bool   `json:"download"` // API > 5.2
 }
 
-
 type AnnounceInfo struct {
 	Alias       string `json:"alias"`
 	Version     string `json:"version"`
@@ -117,15 +116,15 @@ func (pm *PeerMap) ReleaseMap() {
 }
 
 type TLSPaths struct {
-	Dir      string
-	CertPath string
-	KeyPath  string
+	Dir  string
+	Cert string `toml:",omitempty"`
+	Key  string `toml:",omitempty"`
 }
 
 func CreateTLSPaths(dir string, certName string, keyName string) *TLSPaths {
 	return &TLSPaths{
-		Dir:      dir,
-		CertPath: fmt.Sprintf("%s/%s", dir, certName),
-		KeyPath:  fmt.Sprintf("%s/%s", dir, keyName),
+		Dir:  dir,
+		Cert: fmt.Sprintf("%s/%s", dir, certName),
+		Key:  fmt.Sprintf("%s/%s", dir, keyName),
 	}
 }
