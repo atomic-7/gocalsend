@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/discovery"
 	"github.com/atomic-7/gocalsend/internal/encryption"
@@ -19,33 +22,66 @@ import (
 
 func main() {
 
-	var port int
-	var certName string
-	var keyName string
-	var credDir string
-	var useTLS bool
-	var logLevel string
 	var command string
 	var peerAlias string
-	var lsTime int
-	var downloadBase string
 
-	flag.IntVar(&port, "port", 53317, "The port to listen for the api endpoints")
-	flag.StringVar(&certName, "cert", "cert.pem", "The filename of the tls certificate")
-	flag.StringVar(&keyName, "key", "key.pem", "The filename of the tls private key")
-	flag.StringVar(&credDir, "credentials", "./cert", "The path to the tls credentials")
-	flag.BoolVar(&useTLS, "usetls", true, "Use https (usetls=true) or use http (usetls=false)")
-	flag.StringVar(&logLevel, "loglevel", "info", "Log level can be 'info', 'debug' or 'none'")
-	flag.StringVar(&command, "cmd", "receive", "command to execute: rec, receive, snd, send, ls")
-	flag.StringVar(&peerAlias, "peer", "", "alias of the peer to send to. find out with gocalsend --cmd=ls")
-	flag.IntVar(&lsTime, "lstime", 4, "time to wait for peer discovery")
-	flag.StringVar(&downloadBase, "out", "", "path to where incoming files are saved")
-	flag.Parse()
-	// TODO: implement log level none
+	// setup logger so config loading can log, reconfigure later
 	logOpts := log.Options{
 		Level: log.DebugLevel,
+		ReportCaller: true,
 	}
-	switch logLevel {
+	charmLogger := log.NewWithOptions(os.Stdout, logOpts)
+	slog.SetDefault(slog.New(charmLogger))
+
+	configPath := ""
+	for idx, arg := range os.Args {
+		if arg == "--config" || arg == "-config" {
+			if len(os.Args) <= idx+1 {
+				os.Exit(1)
+			}
+			configPath = os.Args[idx+1]
+			break
+		}
+		if strings.HasPrefix(arg, "--config=") || strings.HasPrefix(arg, "-config=") {
+			configPath = strings.SplitN(arg, "=", 2)[1]
+			break
+		}
+	}
+	if configPath != "" {
+		slog.Debug("parsed path", slog.Any("path", configPath))
+	}
+
+	appConf, err := config.Load(configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			appConf, err = config.Default()
+			if err != nil {
+				os.Exit(1)
+			}
+			slog.Info("No config file at default location found. Generating a new one.")
+			appConf.Store(configPath)
+		} else {
+			os.Exit(1)
+		}
+	}
+
+	flag.IntVar(&appConf.Port, "port", appConf.Port, "The port to listen for the api endpoints")
+	flag.StringVar(&appConf.TLSInfo.Cert, "cert", "", "The filename of the tls certificate")
+	flag.StringVar(&appConf.TLSInfo.Key, "key", "", "The filename of the tls private key")
+	flag.StringVar(&appConf.TLSInfo.Dir, "credentials", appConf.TLSInfo.Dir, "The path to the tls credentials")
+	flag.BoolVar(&appConf.UseTLS, "usetls", appConf.UseTLS, "Use https (usetls=true) or use http (usetls=false)")
+	flag.StringVar(&appConf.LogLevel, "loglevel", appConf.LogLevel, "Log level can be 'info', 'debug' or 'none'")
+	flag.StringVar(&command, "cmd", "receive", "command to execute: rec, receive, snd, send, ls")
+	flag.StringVar(&peerAlias, "peer", "", "alias of the peer to send to. find out with gocalsend --cmd=ls")
+	flag.IntVar(&appConf.PeerDiscoveryTime, "lstime", appConf.PeerDiscoveryTime, "time to wait for peer discovery")
+	flag.StringVar(&appConf.DownloadFolder, "out", appConf.DownloadFolder, "path to where incoming files are saved")
+	flag.Parse()
+
+	// TODO: implement log level none
+	logOpts = log.Options{
+		Level: log.DebugLevel,
+	}
+	switch appConf.LogLevel {
 	case "info":
 		logOpts.Level = log.InfoLevel
 	case "debug":
@@ -56,18 +92,17 @@ func main() {
 	case "default":
 		logOpts.Level = log.InfoLevel
 	}
-	charmLogger := log.NewWithOptions(os.Stdout, logOpts)
+	charmLogger = log.NewWithOptions(os.Stdout, logOpts)
 	slog.SetDefault(slog.New(charmLogger))
 
-	if downloadBase != "" {
-		if downloadBase[0] == '~' {
+	if appConf.DownloadFolder != "" {
+		if appConf.DownloadFolder[0] == '~' {
 			home, err := os.UserHomeDir()
 			if err != nil {
 				slog.Error("could not get user home directory", slog.Any("error", err))
 				os.Exit(1)
 			}
-			downloadBase = home + downloadBase[1:]
-			downloadBase = filepath.Join(home, downloadBase[1:])
+			appConf.DownloadFolder = filepath.Join(home, appConf.DownloadFolder[1:])
 		}
 	} else {
 		home, err := os.UserHomeDir()
@@ -76,39 +111,35 @@ func main() {
 			os.Exit(1)
 		}
 		slog.Debug("user home", slog.String("home", home))
-		downloadBase = filepath.Join(home, "Downloads", "gocalsend")
+		appConf.DownloadFolder = filepath.Join(home, "Downloads", "gocalsend")
 	}
-	slog.Info("download folder", slog.String("out", downloadBase))
+	slog.Info("download folder", slog.String("out", appConf.DownloadFolder))
 
-	// TODO: Figure out if it makes more sense to serialize this once or to have it serialized wherever it is needed
 	node := &data.PeerInfo{
-		Alias:       "Gocalsend",
+		Alias:       appConf.Alias,
 		Version:     "2.0",
 		DeviceModel: "cli",
 		DeviceType:  "headless",
 		Fingerprint: "",
-		Port:        port,
+		Port:        appConf.Port,
 		Protocol:    "http",
 		Download:    false,
 		IP:          nil,
 		Announce:    false,
 	}
 
-	var tlsInfo *data.TLSPaths
-
-	if useTLS {
+	if appConf.UseTLS {
 		slog.Debug("setting up tls",
-			slog.String("dir", credDir),
-			slog.String("cert", certName),
-			slog.String("key", keyName),
+			slog.String("dir", appConf.TLSInfo.Dir),
+			slog.String("cert", appConf.TLSInfo.Cert),
+			slog.String("key", appConf.TLSInfo.Key),
 		)
-		tlsInfo = data.CreateTLSPaths(credDir, certName, keyName)
-		err := encryption.SetupTLSCerts(node.Alias, tlsInfo)
+		err := encryption.SetupTLSCerts(appConf.Alias, appConf.TLSInfo)
 		if err != nil {
 			slog.Error("failed to setup tls certificates")
 			os.Exit(1)
 		}
-		fingerprint, err := encryption.GetFingerPrint(tlsInfo)
+		fingerprint, err := encryption.GetFingerPrint(appConf.TLSInfo)
 		if err != nil {
 			slog.Error("could not calculate fingerprint, something went wrong during certificate setup")
 			os.Exit(1)
@@ -137,12 +168,12 @@ func main() {
 		}
 	}
 
-	go server.StartServer(ctx, node, peers, tlsInfo, downloadBase)
+	go server.StartServer(ctx, node, peers, appConf.TLSInfo, appConf.DownloadFolder)
 	go discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
 	runAnnouncement()
 	switch command {
 	case "ls":
-		sleepDuration := lsTime * int(time.Second)
+		sleepDuration := appConf.PeerDiscoveryTime * int(time.Second)
 		time.Sleep(time.Duration(sleepDuration))
 		pm = *peers.GetMap()
 		if len(pm) != 1 {
