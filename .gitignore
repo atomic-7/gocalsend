@@ -15,3 +15,6 @@ nohup.*
 # certs
 cert/
 *.pem
+
+# generated gocalsend configs
+config.toml
