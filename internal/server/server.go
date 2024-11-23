@@ -292,7 +292,7 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.Peer
 				InsecureSkipVerify: true,
 			},
 		}
-		slog.Error("server error", slog.Any("error", srv.ListenAndServeTLS(tlsInfo.CertPath, tlsInfo.KeyPath)))
+		slog.Error("server error", slog.Any("error", srv.ListenAndServeTLS(tlsInfo.Cert, tlsInfo.Key)))
 		os.Exit(1)
 	} else {
 		srv = http.Server{

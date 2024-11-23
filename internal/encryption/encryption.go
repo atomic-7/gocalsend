@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
+	"path/filepath"
 	"github.com/atomic-7/gocalsend/internal/data"
 	"io"
 	"log/slog"
@@ -19,7 +20,7 @@ import (
 
 func GetFingerPrint(paths *data.TLSPaths) (string, error) {
 
-	file, err := os.Open(paths.CertPath)
+	file, err := os.Open(paths.Cert)
 	if err != nil {
 		slog.Error("failed to open cert", slog.Any("error", err))
 		return "", err
@@ -49,12 +50,16 @@ func CheckTLSFiles(certPath string, privKeyPath string) bool {
 
 func SetupTLSCerts(alias string, paths *data.TLSPaths) error {
 
+	if paths.Key == "" && paths.Cert == "" {
+		paths.Key = filepath.Join(paths.Dir, "key.pem")
+		paths.Cert = filepath.Join(paths.Dir, "cert.pem")
+	}
 	// TODO: Expand this to reuse an existing private key
-	if !(checkFile(paths.KeyPath) && checkFile(paths.CertPath)) {
+	if !(checkFile(paths.Key) && checkFile(paths.Cert)) {
 		slog.Debug("unable to find existing tls cert, generating new cert and key",
 			slog.String("dir", paths.Dir),
-			slog.String("cert", paths.CertPath),
-			slog.String("key", paths.KeyPath),
+			slog.String("cert", paths.Cert),
+			slog.String("key", paths.Key),
 		)
 		os.MkdirAll(paths.Dir, 0700)
 		cred, err := createCert(nil, alias, "localhost")
@@ -159,13 +164,13 @@ func createCert(pk *rsa.PrivateKey, org string, dnsname string) (*Credentials, e
 // Throws an error if writing any of the files failed
 func (creds *Credentials) WriteCredentials(paths *data.TLSPaths) error {
 
-	err := os.WriteFile(paths.CertPath, creds.Cert, 0644)
+	err := os.WriteFile(paths.Cert, creds.Cert, 0644)
 	if err != nil {
 		slog.Error("error writing certificate to disk", slog.Any("error", err))
 		return err
 	}
 	// keep the private key private!
-	err = os.WriteFile(paths.KeyPath, creds.Key, 0600)
+	err = os.WriteFile(paths.Key, creds.Key, 0600)
 	if err != nil {
 		slog.Error("error writing private key to disk", slog.Any("error", err))
 		return err
