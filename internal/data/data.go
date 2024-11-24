@@ -116,9 +116,9 @@ func (pm *PeerMap) ReleaseMap() {
 }
 
 type TLSPaths struct {
-	Dir  string
-	Cert string `toml:",omitempty"`
-	Key  string `toml:",omitempty"`
+	Dir  string `comment:"Path where gocalsend stores the generated certificates if none were supplied"`
+	Cert string `toml:",commented" comment:"Optional paths to custom cert and key"`
+	Key  string `toml:",commented"`
 }
 
 func CreateTLSPaths(dir string, certName string, keyName string) *TLSPaths {
