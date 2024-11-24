@@ -2,7 +2,7 @@ package config
 
 import (
 	"errors"
-	"github.com/pelletier/go-toml"
+	"github.com/pelletier/go-toml/v2"
 	"log/slog"
 	"os"
 	"path/filepath"
