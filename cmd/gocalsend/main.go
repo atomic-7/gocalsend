@@ -27,8 +27,7 @@ func main() {
 
 	// setup logger so config loading can log, reconfigure later
 	logOpts := log.Options{
-		Level: log.DebugLevel,
-		ReportCaller: true,
+		Level: log.InfoLevel,
 	}
 	charmLogger := log.NewWithOptions(os.Stdout, logOpts)
 	slog.SetDefault(slog.New(charmLogger))
@@ -59,7 +58,7 @@ func main() {
 			if err != nil {
 				os.Exit(1)
 			}
-			slog.Info("No config file at default location found. Generating a new one.")
+			slog.Info("No config file found. Generating a new one.")
 			appConf.Store(configPath)
 		} else {
 			os.Exit(1)
