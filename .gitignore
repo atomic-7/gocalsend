@@ -12,6 +12,9 @@ build/
 # nohup logs
 nohup.*
 
+# debug logs
+debug.log
+
 # certs
 cert/
 *.pem
