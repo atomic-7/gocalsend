@@ -11,14 +11,14 @@ import (
 )
 
 type Config struct {
-	Version           int
-	Port              int
 	Alias             string
 	DownloadFolder    string
-	UseTLS            bool
-	LogLevel          string
+	Port              int
 	PeerDiscoveryTime int `comment:"Time to search for peers when sending"`
+	LogLevel          string
+	UseTLS            bool
 	TLSInfo           *data.TLSPaths
+	Version           int
 }
 
 func Default() (*Config, error) {
@@ -26,7 +26,7 @@ func Default() (*Config, error) {
 	// TODO: untangle tls paths
 	home, err := os.UserHomeDir()
 	if err != nil {
-		slog.Error("could not get user home directory", slog.Any("error", err))
+		slog.Error("failed to get user home directory", slog.Any("error", err))
 		return nil, err
 	}
 	confdir, err := os.UserConfigDir()
@@ -35,16 +35,16 @@ func Default() (*Config, error) {
 		return nil, err
 	}
 	return &Config{
-		Version:           0,
-		Alias:          "gocalsend",
-		DownloadFolder: filepath.Join(home, "Downloads", "gocalsend"),
-		Port:           53317,
-		UseTLS:         true,
+		Alias:             "gocalsend",
+		DownloadFolder:    filepath.Join(home, "Downloads", "gocalsend"),
+		Port:              53317,
 		PeerDiscoveryTime: 4,
 		LogLevel:          "info",
+		UseTLS:            true,
 		TLSInfo: &data.TLSPaths{
 			Dir: filepath.Join(confdir, "gocalsend"),
 		},
+		Version: 0,
 	}, nil
 }
 
@@ -95,6 +95,7 @@ func (c *Config) Store(path string) error {
 		}
 		path = filepath.Join(confdir, "gocalsend", "config.toml")
 	}
+	logga = slog.Default().With(slog.String("path", path))	// path is now != ""
 	if filepath.Ext(path) != ".toml" {
 		// TODO return IncorrectFileExt here
 		err = errors.New("config file path has incorrect file extension")
@@ -121,5 +122,6 @@ func (c *Config) Store(path string) error {
 		logga.Error("Failed to close config file", slog.Any("error", err))
 		return err
 	}
+	logga.Info("Configuration written to disk")
 	return nil
 }
