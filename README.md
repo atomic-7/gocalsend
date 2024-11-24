@@ -41,6 +41,10 @@ gocalsend --loglevel=debug
 ```
 The `none` log level will be implemented soon<sup>TM</sup>
 
+## Configuration
+The configuration file is stored in the xdg config folder. If this environment variable is unset this location defaults to $HOME/.config/ on unix based systems or %appdata% on windows. 
+When first running gocalsend the program will create a new folder called `gocalsend` in this directory. Within that folder you will find a file called `config.toml` as well as the tls certificate and key. The keys of the configuration file are not yet final, which is indicated by the version number 0 in the config file. Command line flags always take precedence over values from the config file. The `--config` flag can be used to supply a different configuration.
+
 ## Building
 Building requires `make` and the go compiler. If you are running windows you can use [GnuMake32](https://gnuwin32.sourceforge.net/packages/make.htm).
 Run for a release build:
