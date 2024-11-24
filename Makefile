@@ -38,7 +38,7 @@ release: clean
 # Utilities
 # todo: make a build that uses no external dependencies
 #gclsnd: build
-debug: build multicaster dummyep uploader
+debug: build multicaster dummyep uploader tui
 
 multicaster: setup
 	go build -o ${OUTPUT}${SEP}multicaster${EXT} .${SEP}cmd${SEP}multicaster
@@ -48,3 +48,6 @@ dummyep: setup
 
 uploader: setup
 	go build -o ${OUTPUT}${SEP}uploader${EXT} .${SEP}cmd${SEP}uploader
+
+tui: setup
+	go build -o ${OUTPUT}${SEP}gocalsend-tui${EXT} .${SEP}cmd${SEP}gocalsend-tui
