@@ -37,6 +37,7 @@ func main() {
 	for idx, arg := range os.Args {
 		if arg == "--config" || arg == "-config" {
 			if len(os.Args) <= idx+1 {
+				slog.Error("You need to specify a config file with the config flag")
 				os.Exit(1)
 			}
 			configPath = os.Args[idx+1]
@@ -66,8 +67,8 @@ func main() {
 	}
 
 	flag.IntVar(&appConf.Port, "port", appConf.Port, "The port to listen for the api endpoints")
-	flag.StringVar(&appConf.TLSInfo.Cert, "cert", "", "The filename of the tls certificate")
-	flag.StringVar(&appConf.TLSInfo.Key, "key", "", "The filename of the tls private key")
+	flag.StringVar(&appConf.TLSInfo.Cert, "cert", appConf.TLSInfo.Cert, "The filename of the tls certificate")
+	flag.StringVar(&appConf.TLSInfo.Key, "key", appConf.TLSInfo.Key, "The filename of the tls private key")
 	flag.StringVar(&appConf.TLSInfo.Dir, "credentials", appConf.TLSInfo.Dir, "The path to the tls credentials")
 	flag.BoolVar(&appConf.UseTLS, "usetls", appConf.UseTLS, "Use https (usetls=true) or use http (usetls=false)")
 	flag.StringVar(&appConf.LogLevel, "loglevel", appConf.LogLevel, "Log level can be 'info', 'debug' or 'none'")
@@ -95,6 +96,7 @@ func main() {
 	charmLogger = log.NewWithOptions(os.Stdout, logOpts)
 	slog.SetDefault(slog.New(charmLogger))
 
+	// setup the download folder
 	if appConf.DownloadFolder != "" {
 		if appConf.DownloadFolder[0] == '~' {
 			home, err := os.UserHomeDir()
@@ -105,6 +107,7 @@ func main() {
 			appConf.DownloadFolder = filepath.Join(home, appConf.DownloadFolder[1:])
 		}
 	} else {
+		// This might be redundant seeing as this is already part of the default config
 		home, err := os.UserHomeDir()
 		if err != nil {
 			slog.Error("could not get user home directory", slog.Any("error", err))
