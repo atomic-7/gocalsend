@@ -171,7 +171,7 @@ func main() {
 	}
 
 	go server.StartServer(ctx, node, peers, appConf.TLSInfo, appConf.DownloadFolder)
-	go discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
+	go discovery.MonitorMulticast(ctx, multicastAddr, node, peers, registratinator)
 	runAnnouncement()
 	switch command {
 	case "ls":

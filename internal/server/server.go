@@ -210,7 +210,7 @@ func createInfoHandler(nodeJson []byte) http.Handler {
 }
 
 // Registry seems to work when encryption is turned of for the peer, but not when active
-func createRegisterHandler(localNode *data.PeerInfo, peers *data.PeerMap) http.Handler {
+func createRegisterHandler(localNode *data.PeerInfo, peers data.PeerTracker) http.Handler {
 	logga := slog.Default().With(slog.String("handler", "register"))
 	regResp, err := json.Marshal(localNode.ToRegisterResponse())
 	if err != nil {
@@ -226,29 +226,26 @@ func createRegisterHandler(localNode *data.PeerInfo, peers *data.PeerMap) http.H
 		}
 		var peer data.PeerInfo
 		json.Unmarshal(buf, &peer)
+		parts := strings.Split(r.RemoteAddr, ":")
+		peer.IP = net.ParseIP(parts[0])
+		if peer.IP == nil {
+			logga.Error("failed to parse peer ip", slog.Any("host", r.Host))
+			os.Exit(1)
+		}
 		// TODO: maybe reuse the registratinator here?
-		logga.Info("registering peer", slog.String("peer", peer.Alias))
-		pm := *peers.GetMap()
-		defer peers.ReleaseMap()
-		if _, ok := pm[peer.Fingerprint]; ok {
-			logga.Info("peer was already known", slog.String("peer", peer.Alias))
+		if peers.Add(&peer) {
+			logga.Info("registering peer", slog.String("peer", peer.Alias))
 		} else {
-			parts := strings.Split(r.RemoteAddr, ":")
-			peer.IP = net.ParseIP(parts[0])
-			if peer.IP == nil {
-				logga.Error("failed to parse peer ip", slog.Any("host", r.Host))
-				os.Exit(1)
-			}
-			pm[peer.Fingerprint] = &peer
+			logga.Debug("peer was already known", slog.String("peer", peer.Alias))
 		}
 		writer.Write(regResp)
 	})
 }
 
-func StartServer(ctx context.Context, localNode *data.PeerInfo, peers *data.PeerMap, tlsInfo *data.TLSPaths, downloadBase string) {
+func StartServer(ctx context.Context, localNode *data.PeerInfo, peers data.PeerTracker, tlsInfo *data.TLSPaths, downloadBase string) {
 
 	if peers == nil {
-		slog.Error("failed to setup server", slog.String("reason", "peermap is nil"))
+		slog.Error("failed to setup server", slog.String("reason", "peertracker is nil"))
 		os.Exit(1)
 	}
 	jsonBuf, err := json.Marshal(localNode.ToPeerBody())
