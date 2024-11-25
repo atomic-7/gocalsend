@@ -51,7 +51,7 @@ func AnnounceViaMulticast(node *data.PeerInfo, multicastAdress *net.UDPAddr) err
 	return nil
 }
 
-func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *data.PeerMap, registratinator *Registratinator) {
+func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, localnode *data.PeerInfo, peers data.PeerTracker, registratinator *Registratinator) {
 
 	iface := GetInterface()
 	slog.Debug("interface setup", slog.String("interface", iface.Name))
@@ -84,17 +84,14 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, peers *da
 				}
 				slog.Debug("multicast discovery", slog.String("ip", from.String()), slog.String("alias", info.Alias), slog.String("protocol", info.Protocol))
 
-				pm := *peers.GetMap()
-				if pm["self"].Fingerprint == info.Fingerprint {
+				if localnode.Fingerprint == info.Fingerprint {
 					continue
 				}
-				if _, ok := pm[info.Fingerprint]; !ok {
+				if peers.Add(info) {
 					slog.Info("adding peer", slog.String("peer", info.Alias), slog.String("source", "multicast"))
-					pm[info.Fingerprint] = info
 				} else {
-					slog.Info("received advertisement from known peer", slog.String("peer", info.Alias))
+					slog.Debug("received advertisement from known peer", slog.String("peer", info.Alias))
 				}
-				peers.ReleaseMap()
 
 				if info.Announce {
 					// TODO: delay this. I am currently sniping a starting instance before the http server is up
