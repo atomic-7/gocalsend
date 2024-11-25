@@ -95,6 +95,13 @@ type AnnounceInfo struct {
 	Announce    bool   `json:"announce"`
 }
 
+type PeerTracker interface {
+	Has(string) bool
+	Add(*PeerInfo) bool
+	Del(*PeerInfo)
+}
+
+// Implements PeerTracker
 type PeerMap struct {
 	peers map[string]*PeerInfo
 	lock  sync.Mutex
@@ -104,6 +111,26 @@ func NewPeerMap() *PeerMap {
 	return &PeerMap{
 		peers: make(map[string]*PeerInfo),
 	}
+}
+
+// add the peer to the peertracker. returns false if the peer was already known
+func (pm *PeerMap) Add(peer *PeerInfo) bool {
+	pm.lock.Lock()
+	_, present := pm.peers[peer.Fingerprint]
+	pm.peers[peer.Fingerprint] = peer
+	pm.lock.Unlock()
+	return !present
+}
+func (pm *PeerMap) Del(peer *PeerInfo) {
+	pm.lock.Lock()
+	delete(pm.peers, peer.Fingerprint)
+	pm.lock.Unlock()
+}
+func (pm *PeerMap) Has(fingerprint string) bool {
+	pm.lock.Lock()
+	_, ok := pm.peers[fingerprint]
+	pm.lock.Unlock()
+	return ok
 }
 
 func (pm *PeerMap) GetMap() *map[string]*PeerInfo {
