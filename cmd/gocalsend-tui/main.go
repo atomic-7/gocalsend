@@ -3,7 +3,8 @@ package main
 import (
 	"log/slog"
 	"os"
-	tea "github.com/charmbracelet/bubbletea"
+
+	// tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/log"
 
 	"github.com/atomic-7/gocalsend/internal/config"
@@ -11,28 +12,10 @@ import (
 	"github.com/atomic-7/gocalsend/internal/encryption"
 )
 
-type model struct {
-	KnownPeers []*data.PeerInfo
-	SelectedPeer int
-	SelectedFiles []string
-	Mode string
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m, nil
-}
-
-func (m model) View() string {
-	return "hello"
-}
-
-func (m model) Init() tea.Cmd {
-	return nil
-}
 
 func main() {
 
-	logfile, err := os.Create("debug.log")	
+	logfile, err := os.Create("debug.log")
 	if err != nil {
 		os.Exit(1)
 	}
