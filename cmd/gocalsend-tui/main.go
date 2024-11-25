@@ -3,15 +3,16 @@ package main
 import (
 	"log/slog"
 	"os"
+	"time"
 
-	// tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/log"
 
 	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/encryption"
+	"github.com/atomic-7/gocalsend/internal/tui"
 )
-
 
 func main() {
 
@@ -85,4 +86,32 @@ func main() {
 	pm := *peers.GetMap()
 	pm["self"] = node
 	peers.ReleaseMap()
+
+	p := tea.NewProgram(tui.NewModel())
+	go func() {
+		slog.Debug("sleeping")
+		time.Sleep(1 * time.Second)
+		p.Send(tui.AddPeerMsg(node))
+		time.Sleep(1 * time.Second)
+		p.Send(tui.AddPeerMsg(node))
+		time.Sleep(1 * time.Second)
+		p.Send(tui.AddPeerMsg(node))
+		slog.Debug("peer messages sent")
+
+		time.Sleep(1 * time.Second)
+		p.Send(tui.DelPeerMsg(node.Fingerprint))
+		time.Sleep(1 * time.Second)
+		p.Send(tui.DelPeerMsg(node.Fingerprint))
+		time.Sleep(1 * time.Second)
+		p.Send(tui.DelPeerMsg(node.Fingerprint))
+		slog.Debug("deleted peers")
+
+	}()
+
+	
+	slog.Info("starting tea program")
+	if _, err := p.Run(); err != nil {
+		slog.Error("Error runnnig bubble program", slog.Any("error", err))
+		os.Exit(1)
+	}
 }
