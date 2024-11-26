@@ -52,7 +52,13 @@ func createPrepareUploadHandler(sman *SessionManager) http.Handler {
 		logga.Debug("session files", slog.Any("files", payload.Files))
 		logga.Debug("Files to tokens")
 		// maybe track the client to which this session belongs?
+		// TODO: use session manager to check if the user wants to accept the incoming request
 		sess := sman.CreateSession(payload.Files)
+		if sess == nil {
+			w.WriteHeader(403)
+			logga.Debug("user declined session")
+			return
+		}
 		for fid, tok := range sess.Files {
 			logga.Info("[File]", slog.String("fileID", fid), slog.String("token", tok))
 		}
@@ -242,7 +248,7 @@ func createRegisterHandler(localNode *data.PeerInfo, peers data.PeerTracker) htt
 	})
 }
 
-func StartServer(ctx context.Context, localNode *data.PeerInfo, peers data.PeerTracker, tlsInfo *data.TLSPaths, downloadBase string) {
+func StartServer(ctx context.Context, localNode *data.PeerInfo, peers data.PeerTracker, sessionManager *SessionManager, tlsInfo *data.TLSPaths, downloadBase string) {
 
 	if peers == nil {
 		slog.Error("failed to setup server", slog.String("reason", "peertracker is nil"))
@@ -254,8 +260,6 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers data.PeerT
 		os.Exit(1)
 	}
 	slog.Debug("NodeJson", slog.String("json", string(jsonBuf)))
-
-	sessionManager := NewSessionManager(downloadBase)
 
 	infoHandler := createInfoHandler(jsonBuf)
 	prepUploadHandler := createPrepareUploadHandler(sessionManager)
