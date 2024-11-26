@@ -27,10 +27,17 @@ type Session struct {
 }
 
 func NewSessionManager(basePath string) *SessionManager {
+type UIHooks interface {
+	OfferSession(*data.SessionInfo, chan bool)
+	SessionFinished()
+}
+
+func NewSessionManager(basePath string, uihooks UIHooks) *SessionManager {
 	return &SessionManager{
 		BasePath: basePath,
 		Serial:   1,
 		Sessions: make(map[string]*Session),
+		ui: uihooks,
 	}
 }
 
@@ -119,4 +126,15 @@ func (sm *SessionManager) FinishSession(sessionId string) {
 	delete(sm.Sessions, sessionId)
 	sm.lock.Unlock()
 	slog.Info("Finished session", slog.String("sessionId", sessionId))
+}
+
+// headless implementation of the ui hook interface
+type HeadlessUI struct {}
+
+func (hui *HeadlessUI) OfferSession(sess *data.SessionInfo, res chan bool) {
+	res <- true
+}
+
+func (hui *HeadlessUI) SessionFinished() {
+	slog.Debug("headless session finished")
 }

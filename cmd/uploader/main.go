@@ -92,8 +92,10 @@ func main() {
 	if err != nil {
 		slog.Error("could not find user home directory", slog.Any("error", err))
 	}
-	go server.StartServer(ctx, &node, peers, tlsInfo, outFolder)
-	go discovery.MonitorMulticast(ctx, multicastAddr, peers, registratinator)
+	hui := server.HeadlessUI{}
+	sessionManager := server.NewSessionManager(outFolder, &hui)
+	go server.StartServer(ctx, &node, peers, sessionManager, tlsInfo, outFolder)
+	go discovery.MonitorMulticast(ctx, multicastAddr, &node, peers, registratinator)
 
 	upl := uploader.CreateUploader(&node)
 

@@ -159,6 +159,8 @@ func main() {
 	pm["self"] = node
 	peers.ReleaseMap()
 
+	hui := server.HeadlessUI{}
+	sessionManager := server.NewSessionManager(appConf.DownloadFolder, &hui)
 	registratinator := discovery.NewRegistratinator(node)
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -170,7 +172,7 @@ func main() {
 		}
 	}
 
-	go server.StartServer(ctx, node, peers, appConf.TLSInfo, appConf.DownloadFolder)
+	go server.StartServer(ctx, node, peers, sessionManager, appConf.TLSInfo, appConf.DownloadFolder)
 	go discovery.MonitorMulticast(ctx, multicastAddr, node, peers, registratinator)
 	runAnnouncement()
 	switch command {

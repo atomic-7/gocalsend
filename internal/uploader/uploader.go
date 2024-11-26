@@ -48,7 +48,7 @@ func CreateUploader(node *data.PeerInfo) *Uploader {
 		node:    node,
 		client:  client,
 		tlsclient: tlsclient,
-		sessMan: server.NewSessionManager("/home/atomc/Downloads/gocalsend"),
+		sessMan: server.NewSessionManager("/home/atomc/Downloads/gocalsend", &server.HeadlessUI{}),
 	}
 }
 
