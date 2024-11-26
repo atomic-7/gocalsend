@@ -1,11 +1,15 @@
 package tui
 
 import (
+	"context"
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
 	"log/slog"
 	"strings"
+	"sync"
 
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/data"
 )
 
@@ -15,8 +19,11 @@ import (
 // TODO: display the keybinds at the bottom
 // TODO: figure out if peermap should be an interface
 type Model struct {
-	peers  []*data.PeerInfo
-	cursor int
+	peers   []*data.PeerInfo
+	cursor  int
+	config  *config.Config
+	Context context.Context
+	CancelF context.CancelFunc
 }
 
 type AddPeerMsg *data.PeerInfo
@@ -55,10 +62,11 @@ func (m *Model) cursorDown() {
 	}
 }
 
-func NewModel() Model {
+func NewModel(appconfig *config.Config) Model {
 	return Model{
 		peers:  make([]*data.PeerInfo, 0, 10),
 		cursor: 0,
+		config: appconfig,
 	}
 }
 
@@ -118,4 +126,45 @@ func (m Model) View() string {
 
 func (m Model) Init() tea.Cmd {
 	return nil
+}
+
+func NewPeerMap(prog *tea.Program) *PeerMap {
+	return &PeerMap{
+		peers: make(map[string]*data.PeerInfo),
+		program: prog,
+	}
+}
+
+type PeerMap struct {
+	peers   map[string]*data.PeerInfo
+	lock    sync.Mutex
+	program *tea.Program
+}
+
+func (pm *PeerMap) Add(peer *data.PeerInfo) bool {
+	slog.Debug("adding to peertracker", slog.String("peer", peer.Alias))
+	pm.lock.Lock()
+	_, present := pm.peers[peer.Fingerprint]
+	pm.peers[peer.Fingerprint] = peer
+	pm.lock.Unlock()
+	if !present {
+		pm.program.Send(AddPeerMsg(peer))
+	}
+	return !present
+}
+func (pm *PeerMap) Del(peer *data.PeerInfo) {
+
+	_, present := pm.peers[peer.Fingerprint]
+	if !present {
+		pm.program.Send(AddPeerMsg(peer))
+	}
+	pm.lock.Lock()
+	delete(pm.peers, peer.Fingerprint)
+	pm.lock.Unlock()
+}
+func (pm *PeerMap) Has(fingerprint string) bool {
+	pm.lock.Lock()
+	_, ok := pm.peers[fingerprint]
+	pm.lock.Unlock()
+	return ok
 }
