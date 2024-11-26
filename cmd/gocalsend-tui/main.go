@@ -91,11 +91,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	model := tui.NewModel(appConf)
+
+	model := tui.NewModel(appConf, nil)
 	model.Context = ctx
-	model.CancelF = cancel
-	p := tea.NewProgram(tui.NewModel(appConf))
+	p := tea.NewProgram(model)
 	peers := tui.NewPeerMap(p)
+	hooks := tui.NewHooks(p)
+	sessionManager := server.NewSessionManager(appConf.DownloadFolder, hooks)
+	model.SessionManager = sessionManager
 
 	runAnnouncement := func() {
 		err := discovery.AnnounceViaMulticast(node, multicastAddr)
@@ -103,7 +106,7 @@ func main() {
 			registratinator.RegisterAtSubnet(ctx, peers)
 		}
 	}
-	go server.StartServer(ctx, node, peers, appConf.TLSInfo, appConf.DownloadFolder)
+	go server.StartServer(ctx, node, peers, sessionManager, appConf.TLSInfo, appConf.DownloadFolder)
 	go discovery.MonitorMulticast(ctx, multicastAddr, node, peers, registratinator)
 	runAnnouncement()
 	ticker := time.NewTicker(1 * time.Minute)
