@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/atomic-7/gocalsend/internal/data"
 )
@@ -16,6 +17,7 @@ type SessionManager struct {
 	Serial   int
 	Sessions map[string]*Session
 	lock     sync.Mutex
+	ui        UIHooks
 }
 
 // maybe track which peer this session belongs to. Needed to check for 403
@@ -26,7 +28,6 @@ type Session struct {
 	lock      sync.Mutex
 }
 
-func NewSessionManager(basePath string) *SessionManager {
 type UIHooks interface {
 	OfferSession(*data.SessionInfo, chan bool)
 	SessionFinished()
@@ -46,6 +47,7 @@ func (sm *SessionManager) tokenize(sess *data.SessionInfo, file *data.File) stri
 	return hex.EncodeToString(sha256.New().Sum([]byte(token)))
 }
 
+// asks the ui to accept the session and creates if it if the user accepts. returns nil if the session offer is rejected
 func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.SessionInfo {
 	fileToToken := make(map[string]string, len(files))
 	idToFile := make(map[string]*data.File, len(files))
@@ -63,14 +65,29 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 		fileToToken[fileID] = token
 		idToFile[fileID] = file
 	}
-	sm.lock.Lock()
-	sm.Sessions[sessInfo.SessionID] = &Session{
-		SessionID: sessID,
-		Files:     idToFile,
-		Finished:  len(idToFile),
+
+	res := make(chan bool)
+	sm.ui.OfferSession(sessInfo, res)
+	timer := time.NewTimer(1 * time.Minute)
+	answer := false
+	select {
+		case <- timer.C:
+			slog.Debug("Session offer timed out", slog.Any("sess", sessInfo))
+		case answer = <- res:
+			slog.Debug("User accepted session")
 	}
-	sm.lock.Unlock()
-	return sessInfo
+	if answer {
+		sm.lock.Lock()
+		sm.Sessions[sessInfo.SessionID] = &Session{
+			SessionID: sessID,
+			Files:     idToFile,
+			Finished:  len(idToFile),
+		}
+		sm.lock.Unlock()
+		return sessInfo
+	} else {
+		return nil
+	}
 }
 
 func (sm *SessionManager) RegisterSession(sess *data.SessionInfo, files map[string]*data.File) string {
@@ -79,14 +96,14 @@ func (sm *SessionManager) RegisterSession(sess *data.SessionInfo, files map[stri
 		file.Token = sess.Files[fileID]
 	}
 	sm.lock.Lock()
-	sessID :=fmt.Sprintf("gclsnd-client-%d", sm.Serial)
+	sessID := fmt.Sprintf("gclsnd-client-%d", sm.Serial)
 	sm.Sessions[sessID] = &Session{
 		SessionID: sess.SessionID,
-		Files: files,
-		Finished: len(files),
+		Files:     files,
+		Finished:  len(files),
 	}
 	sm.lock.Unlock()
-	return  sessID
+	return sessID
 }
 
 func (sm *SessionManager) CancelSession(sessionID string) {
@@ -125,6 +142,7 @@ func (sm *SessionManager) FinishSession(sessionId string) {
 	sm.lock.Lock()
 	delete(sm.Sessions, sessionId)
 	sm.lock.Unlock()
+	sm.ui.SessionFinished()
 	slog.Info("Finished session", slog.String("sessionId", sessionId))
 }
 
