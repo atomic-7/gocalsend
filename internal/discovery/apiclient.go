@@ -139,7 +139,7 @@ func (regi *Registratinator) RegisterAt(ctx context.Context, peer *data.PeerInfo
 }
 
 // Falback fallback: try registering by hitting every live ip in the subnet
-func (regi *Registratinator) RegisterAtSubnet(ctx context.Context, knownPeers *data.PeerMap) error {
+func (regi *Registratinator) RegisterAtSubnet(ctx context.Context, knownPeers data.PeerTracker) error {
 	// not actually trying to reach google, just getting my local ip address
 	// This should cause no communication with another server
 	// should probably replace this with iterating over the ip adresses bound to the used interface
@@ -172,6 +172,7 @@ func (regi *Registratinator) RegisterAtSubnet(ctx context.Context, knownPeers *d
 		if err != nil {
 			slog.Debug("[subreg] could not reach client", slog.String("target", addr.String()))
 		}
+		// Add clients that answered here?
 	}
 	return nil
 }
