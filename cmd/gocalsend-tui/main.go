@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"log/slog"
+	"net"
 	"os"
 	"time"
 
@@ -10,7 +12,9 @@ import (
 
 	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/data"
+	"github.com/atomic-7/gocalsend/internal/discovery"
 	"github.com/atomic-7/gocalsend/internal/encryption"
+	"github.com/atomic-7/gocalsend/internal/server"
 	"github.com/atomic-7/gocalsend/internal/tui"
 )
 
@@ -82,36 +86,44 @@ func main() {
 		node.Fingerprint = "nonononono"
 	}
 
-	peers := data.NewPeerMap()
-	pm := *peers.GetMap()
-	pm["self"] = node
-	peers.ReleaseMap()
+	registratinator := discovery.NewRegistratinator(node)
+	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	p := tea.NewProgram(tui.NewModel())
-	go func() {
-		slog.Debug("sleeping")
-		time.Sleep(1 * time.Second)
-		p.Send(tui.AddPeerMsg(node))
-		time.Sleep(1 * time.Second)
-		p.Send(tui.AddPeerMsg(node))
-		time.Sleep(1 * time.Second)
-		p.Send(tui.AddPeerMsg(node))
-		slog.Debug("peer messages sent")
+	model := tui.NewModel(appConf)
+	model.Context = ctx
+	model.CancelF = cancel
+	p := tea.NewProgram(tui.NewModel(appConf))
+	peers := tui.NewPeerMap(p)
 
-		time.Sleep(1 * time.Second)
-		p.Send(tui.DelPeerMsg(node.Fingerprint))
-		time.Sleep(1 * time.Second)
-		p.Send(tui.DelPeerMsg(node.Fingerprint))
-		time.Sleep(1 * time.Second)
-		p.Send(tui.DelPeerMsg(node.Fingerprint))
-		slog.Debug("deleted peers")
-
-	}()
-
-	
+	runAnnouncement := func() {
+		err := discovery.AnnounceViaMulticast(node, multicastAddr)
+		if err != nil {
+			registratinator.RegisterAtSubnet(ctx, peers)
+		}
+	}
+	go server.StartServer(ctx, node, peers, appConf.TLSInfo, appConf.DownloadFolder)
+	go discovery.MonitorMulticast(ctx, multicastAddr, node, peers, registratinator)
+	runAnnouncement()
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	go intervalRunner(ctx, runAnnouncement, ticker)
 	slog.Info("starting tea program")
 	if _, err := p.Run(); err != nil {
 		slog.Error("Error runnnig bubble program", slog.Any("error", err))
 		os.Exit(1)
+	}
+}
+
+func intervalRunner(ctx context.Context, f func(), ticker *time.Ticker) {
+	for {
+		select {
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			f()
+		}
 	}
 }
