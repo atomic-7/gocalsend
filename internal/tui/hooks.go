@@ -23,12 +23,12 @@ func NewHooks(p *tea.Program) *UIHooks {
 	}
 }
 
-func (h *UIHooks) OfferSession(sess *server.Session, res responseChannel) {
-	h.program.Send(&SessionOffer{sess: sess, res: res})
+func (h *UIHooks) OfferSession(sess *server.Session, res screens.ResponseChannel) {
+	h.program.Send(&screens.SessionOffer{Sess: sess, Res: res})
 }
 
 func (h *UIHooks) SessionFinished() {
-	h.program.Send(SessionFinished(true))
+	h.program.Send(screens.SessionFinished(true))
 }
 
 func NewPeerMap(prog *tea.Program) *PeerMap {
