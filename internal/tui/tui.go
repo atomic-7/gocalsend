@@ -42,7 +42,7 @@ type responseChannel = chan bool
 type AddPeerMsg *data.PeerInfo
 type DelPeerMsg = string
 type SessionOffer struct {
-	sess *data.SessionInfo
+	sess *server.Session
 	res  responseChannel
 }
 type SessionFinished bool
@@ -159,8 +159,12 @@ func acceptScreenUpdate(msg tea.Msg, m Model) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			m.denySession()
-			m.cursor = 0
-			m.screen = peerScreen
+			if len(m.sessionOffers) == 0 {
+				m.cursor = 0
+				m.screen = peerScreen
+			} else {
+				m.cursor -= 1
+			}
 			return m, nil
 		case tea.KeyUp:
 			m.cursorUp()
@@ -169,8 +173,12 @@ func acceptScreenUpdate(msg tea.Msg, m Model) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter, tea.KeySpace:
 			slog.Info("entry selected", slog.String("screen", "acceptScreen"))
 			m.acceptSession()
-			m.cursor = 0
-			m.screen = peerScreen
+			if len(m.sessionOffers) == 0 {
+				m.cursor = 0
+				m.screen = peerScreen
+			} else {
+				m.cursor -= 1
+			}
 			return m, nil
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
@@ -216,8 +224,8 @@ func renderAcceptScreen(m *Model) string {
 			indicator = ">"
 		}
 		fmt.Fprintf(&b, "%s | %s\n", indicator, offer.sess.SessionID)
-		for fi, tok := range offer.sess.Files {
-			fmt.Fprintf(&b, "  # %s - %s\n", fi, tok)
+		for _, file := range offer.sess.Files {
+			fmt.Fprintf(&b, "  # %s - %d \n", file.FileName, file.Size)
 		}
 	}
 

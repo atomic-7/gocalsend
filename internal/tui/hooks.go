@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/atomic-7/gocalsend/internal/data"
+	"github.com/atomic-7/gocalsend/internal/server"
 )
 
 
@@ -21,8 +22,8 @@ func NewHooks(p *tea.Program) *UIHooks {
 	}
 }
 
-func (h *UIHooks) OfferSession(sessInfo *data.SessionInfo, res responseChannel) {
-	h.program.Send(&SessionOffer{sess: sessInfo, res: res})
+func (h *UIHooks) OfferSession(sess *server.Session, res responseChannel) {
+	h.program.Send(&SessionOffer{sess: sess, res: res})
 }
 
 func (h *UIHooks) SessionFinished() {

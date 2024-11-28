@@ -29,7 +29,7 @@ type Session struct {
 }
 
 type UIHooks interface {
-	OfferSession(*data.SessionInfo, chan bool)
+	OfferSession(*Session, chan bool)
 	SessionFinished()
 }
 
@@ -66,8 +66,14 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 		idToFile[fileID] = file
 	}
 
+	sessionCandidate := &Session{
+					SessionID: sessID,
+					Files:     idToFile,
+					Finished:  len(idToFile),
+				}
+
 	res := make(chan bool)
-	sm.ui.OfferSession(sessInfo, res)
+	sm.ui.OfferSession(sessionCandidate, res)
 	timer := time.NewTimer(1 * time.Minute)
 	answer := false
 	select {
@@ -78,11 +84,7 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 	}
 	if answer {
 		sm.lock.Lock()
-		sm.Sessions[sessInfo.SessionID] = &Session{
-			SessionID: sessID,
-			Files:     idToFile,
-			Finished:  len(idToFile),
-		}
+		sm.Sessions[sessInfo.SessionID] = sessionCandidate
 		sm.lock.Unlock()
 		return sessInfo
 	} else {
@@ -149,7 +151,7 @@ func (sm *SessionManager) FinishSession(sessionId string) {
 // headless implementation of the ui hook interface
 type HeadlessUI struct {}
 
-func (hui *HeadlessUI) OfferSession(sess *data.SessionInfo, res chan bool) {
+func (hui *HeadlessUI) OfferSession(sess *Session, res chan bool) {
 	res <- true
 }
 
