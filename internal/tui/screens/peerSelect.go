@@ -8,7 +8,6 @@ import (
 
 	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/data"
-	"github.com/atomic-7/gocalsend/internal/server"
 )
 
 type PSModel struct {
@@ -52,7 +51,7 @@ func (m *PSModel) delPeer(fingerprint string) {
 	}
 }
 
-func NewPSModel(sessionManager *server.SessionManager) PSModel {
+func NewPSModel() PSModel {
 	return PSModel{
 		peers:          make([]*data.PeerInfo, 0, 10),
 		cursor:         0,
@@ -65,6 +64,8 @@ func (m PSModel) Init() tea.Cmd {
 
 func (m PSModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case *SessionOffer:
+		slog.Debug("session offer got trapped in peer select")
 	case AddPeerMsg:
 		m.addPeer(msg)
 		slog.Debug("received peermessage", slog.String("peer", msg.Alias))
