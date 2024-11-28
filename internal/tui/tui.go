@@ -11,6 +11,7 @@ import (
 	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/tui/screens"
 )
 
 // TODO: when a new client registers, send a message to the update function
@@ -19,6 +20,7 @@ import (
 // TODO: display the keybinds at the bottom
 // TODO: figure out if peermap should be an interface
 type Model struct {
+	peerModel	screens.PSModel
 	screen         uint
 	peers          []*data.PeerInfo
 	cursor         int
@@ -39,33 +41,39 @@ const (
 
 type responseChannel = chan bool
 
-type AddPeerMsg *data.PeerInfo
-type DelPeerMsg = string
 type SessionOffer struct {
 	sess *server.Session
 	res  responseChannel
 }
 type SessionFinished bool
 
-func (m *Model) addPeer(peer *data.PeerInfo) {
-	m.peers = append(m.peers, peer)
+func NewModel(appconfig *config.Config, sessionManager *server.SessionManager) Model {
+	return Model{
+		peerModel: screens.NewPSModel(sessionManager),
+		screen:         peerScreen,
+		cursor:         0,
+		config:         appconfig,
+		SessionManager: sessionManager,
+		sessionOffers:  make([]*SessionOffer, 0, 10),
+	}
 }
 
-func (m *Model) delPeer(fingerprint string) {
-	elem := -1
-	for idx, peer := range m.peers {
-		if peer.Fingerprint == fingerprint {
-			elem = idx
-			break
-		}
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case *SessionOffer:
+		slog.Debug("incoming session offer", slog.String("src", "main update"))
+		m.screen = acceptScreen
+		m.cursor = 0
+		m.sessionOffers = append(m.sessionOffers, msg)
 	}
-	if elem != -1 {
-		if m.cursor >= elem {
-			m.cursor -= 1
-		}
-		m.peers[elem] = nil // set to nil so the reference can be garbage collected
-		m.peers = append(m.peers[:elem], m.peers[elem+1:]...)
+	switch m.screen {
+	case peerScreen:
+		return m.peerModel.Update(msg)
+	case acceptScreen:
+		// TODO: use batch to create a timer that sends false on the response channel
+		return acceptScreenUpdate(msg, m)
 	}
+	return m, nil
 }
 
 func (m *Model) cursorUp() {
@@ -78,67 +86,6 @@ func (m *Model) cursorDown() {
 	if m.cursor < len(m.peers)-1 {
 		m.cursor += 1
 	}
-}
-
-func NewModel(appconfig *config.Config, sessionManager *server.SessionManager) Model {
-	return Model{
-		screen:         peerScreen,
-		peers:          make([]*data.PeerInfo, 0, 10),
-		cursor:         0,
-		config:         appconfig,
-		SessionManager: sessionManager,
-		sessionOffers:  make([]*SessionOffer, 0, 10),
-	}
-}
-
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case AddPeerMsg:
-		m.addPeer(msg)
-		slog.Debug("received peermessage", slog.String("peer", msg.Alias))
-	case DelPeerMsg:
-		m.delPeer(msg)
-	case *SessionOffer:
-		slog.Debug("incoming session offer", slog.String("src", "main update"))
-		m.screen = acceptScreen
-		m.cursor = 0
-		m.sessionOffers = append(m.sessionOffers, msg)
-	}
-	switch m.screen {
-	case peerScreen:
-		return peerScreenUpdate(msg, m)
-	case acceptScreen:
-		// TODO: use batch to create a timer that sends false on the response channel
-		return acceptScreenUpdate(msg, m)
-	}
-	return m, nil
-}
-
-func peerScreenUpdate(msg tea.Msg, m Model) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return m, tea.Quit
-		case tea.KeyUp:
-			m.cursorUp()
-		case tea.KeyDown:
-			m.cursorDown()
-		case tea.KeyEnter, tea.KeySpace:
-			slog.Info("entry selected", slog.String("screen", "peerScreen"), slog.String("peer", m.peers[m.cursor].Alias))
-			return m, nil
-		case tea.KeyRunes:
-			switch string(msg.Runes) {
-			case "q":
-				return m, tea.Quit
-			case "j":
-				m.cursorDown()
-			case "k":
-				m.cursorUp()
-			}
-		}
-	}
-	return m, nil
 }
 
 func (m *Model) acceptSession() {

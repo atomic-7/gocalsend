@@ -8,6 +8,7 @@ import (
 
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/tui/screens"
 )
 
 
@@ -50,7 +51,7 @@ func (pm *PeerMap) Add(peer *data.PeerInfo) bool {
 	pm.peers[peer.Fingerprint] = peer
 	pm.lock.Unlock()
 	if !present {
-		pm.program.Send(AddPeerMsg(peer))
+		pm.program.Send(screens.AddPeerMsg(peer))
 	}
 	return !present
 }
@@ -58,7 +59,7 @@ func (pm *PeerMap) Del(peer *data.PeerInfo) {
 
 	_, present := pm.peers[peer.Fingerprint]
 	if !present {
-		pm.program.Send(AddPeerMsg(peer))
+		pm.program.Send(screens.AddPeerMsg(peer))
 	}
 	pm.lock.Lock()
 	delete(pm.peers, peer.Fingerprint)
