@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -12,17 +13,11 @@ import (
 	"github.com/atomic-7/gocalsend/internal/data"
 )
 
-type KeyMap struct {
-	Up key.Binding
-	Down key.Binding
-	Confirm key.Binding
-	Quit key.Binding
-}
-
 type PSModel struct {
 	cursor int
 	peers  []*data.PeerInfo
 	config *config.Config
+	help   help.Model
 	KeyMap KeyMap
 }
 type AddPeerMsg *data.PeerInfo
@@ -51,10 +46,10 @@ func (m *PSModel) delPeer(fingerprint string) {
 
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
-		Up: key.NewBinding(key.WithKeys("k", "up", "ctrl+p"), key.WithHelp("k", "up")),
-		Down: key.NewBinding(key.WithKeys("j", "down", "ctrl+n"), key.WithHelp("j", "down")),
+		Up:      key.NewBinding(key.WithKeys("k", "up", "ctrl+p"), key.WithHelp("k", "up")),
+		Down:    key.NewBinding(key.WithKeys("j", "down", "ctrl+n"), key.WithHelp("j", "down")),
 		Confirm: key.NewBinding(key.WithKeys("space", "enter"), key.WithHelp("space", "confirm")),
-		Quit: key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+q"), key.WithHelp("q", "quit")),
+		Quit:    key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+q"), key.WithHelp("q", "quit")),
 	}
 }
 
@@ -62,6 +57,7 @@ func NewPSModel() PSModel {
 	return PSModel{
 		peers:  make([]*data.PeerInfo, 0, 10),
 		cursor: 0,
+		help: help.New(),
 		KeyMap: DefaultKeyMap(),
 	}
 }
@@ -79,6 +75,9 @@ func (m PSModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		slog.Debug("received peermessage", slog.String("peer", msg.Alias))
 	case DelPeerMsg:
 		m.delPeer(msg)
+	case tea.WindowSizeMsg:
+		// help truncates if the width is not enough
+		m.help.Width = msg.Width
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.KeyMap.Up):
@@ -87,9 +86,9 @@ func (m PSModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.KeyMap.Down):
 			if m.cursor < len(m.peers)-1 {
-					m.cursor += 1
+				m.cursor += 1
 			}
-			
+
 		case key.Matches(msg, m.KeyMap.Confirm):
 			slog.Info("entry selected", slog.String("screen", "peerScreen"), slog.String("peer", m.peers[m.cursor].Alias))
 			return m, nil
@@ -112,7 +111,31 @@ func (m PSModel) View() string {
 		fmt.Fprintf(&b, "%s | %s\n", indicator, peer.Alias)
 	}
 
-	b.WriteString("\nPress q or Ctrl+C to quit.\n")
+	helpView := m.help.View(m.KeyMap)
+
+	b.WriteString("\n\n")
+	b.WriteString(helpView)
+	b.WriteString("\n")
 
 	return b.String()
+}
+
+// Implements key.Map interface
+type KeyMap struct {
+	Up      key.Binding
+	Down    key.Binding
+	Confirm key.Binding
+	Quit    key.Binding
+}
+
+// keybindinds to be shown in the mini help view
+func (k KeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Up, k.Down, k.Confirm, k.Quit}
+}
+
+// keybinds to be shown in the full help view
+func (k KeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down, k.Confirm, k.Quit},
+	}
 }
