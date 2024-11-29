@@ -1,4 +1,4 @@
-package screens
+package peers
 
 import (
 	"fmt"
@@ -11,9 +11,10 @@ import (
 
 	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/data"
+	"github.com/atomic-7/gocalsend/internal/tui/screens"
 )
 
-type PSModel struct {
+type Model struct {
 	cursor int
 	peers  []*data.PeerInfo
 	config *config.Config
@@ -23,11 +24,11 @@ type PSModel struct {
 type AddPeerMsg *data.PeerInfo
 type DelPeerMsg = string
 
-func (m *PSModel) addPeer(peer *data.PeerInfo) {
+func (m *Model) addPeer(peer *data.PeerInfo) {
 	m.peers = append(m.peers, peer)
 }
 
-func (m *PSModel) delPeer(fingerprint string) {
+func (m *Model) delPeer(fingerprint string) {
 	elem := -1
 	for idx, peer := range m.peers {
 		if peer.Fingerprint == fingerprint {
@@ -53,8 +54,8 @@ func DefaultKeyMap() KeyMap {
 	}
 }
 
-func NewPSModel() PSModel {
-	return PSModel{
+func NewPSModel() Model {
+	return Model{
 		peers:  make([]*data.PeerInfo, 0, 10),
 		cursor: 0,
 		help: help.New(),
@@ -62,13 +63,13 @@ func NewPSModel() PSModel {
 	}
 }
 
-func (m PSModel) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-func (m PSModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case *SessionOffer:
+	case *screens.SessionOffer:
 		slog.Debug("session offer got trapped in peer select")
 	case AddPeerMsg:
 		m.addPeer(msg)
@@ -99,7 +100,7 @@ func (m PSModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m PSModel) View() string {
+func (m Model) View() string {
 	var b strings.Builder
 	b.WriteString("Peers\n\n")
 	slog.Debug("render", slog.Any("peers", m.peers))

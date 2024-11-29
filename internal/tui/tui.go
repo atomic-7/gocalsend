@@ -9,6 +9,7 @@ import (
 	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/server"
 	"github.com/atomic-7/gocalsend/internal/tui/screens"
+	"github.com/atomic-7/gocalsend/internal/tui/peers"
 )
 
 // TODO: when a new client registers, send a message to the update function
@@ -17,7 +18,7 @@ import (
 // TODO: display the keybinds at the bottom
 // TODO: figure out if peermap should be an interface
 type Model struct {
-	peerModel    screens.PSModel
+	peerModel    peers.Model
 	sessionModel screens.SOModel
 	screen       uint
 	config       *config.Config
@@ -35,7 +36,7 @@ const (
 
 func NewModel(appconfig *config.Config) Model {
 	return Model{
-		peerModel:    screens.NewPSModel(),
+		peerModel:    peers.NewPSModel(),
 		screen:       peerScreen,
 		config:       appconfig,
 	}
@@ -56,7 +57,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.screen {
 	case peerScreen:
 		res, cmd := m.peerModel.Update(msg)
-		m.peerModel = res.(screens.PSModel)
+		m.peerModel = res.(peers.Model)
 		return m,cmd
 	case acceptScreen:
 		// TODO: use batch to create a timer that sends false on the response channel
