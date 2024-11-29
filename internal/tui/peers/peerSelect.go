@@ -11,7 +11,6 @@ import (
 
 	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/data"
-	"github.com/atomic-7/gocalsend/internal/tui/screens"
 )
 
 type Model struct {
@@ -67,10 +66,8 @@ func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case *screens.SessionOffer:
-		slog.Debug("session offer got trapped in peer select")
 	case AddPeerMsg:
 		m.addPeer(msg)
 		slog.Debug("received peermessage", slog.String("peer", msg.Alias))

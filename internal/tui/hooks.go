@@ -8,10 +8,9 @@ import (
 
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/server"
-	"github.com/atomic-7/gocalsend/internal/tui/screens"
 	"github.com/atomic-7/gocalsend/internal/tui/peers"
+	"github.com/atomic-7/gocalsend/internal/tui/sessions"
 )
-
 
 // this could be rewritten to where the model is implementing the PeerMap interface
 type UIHooks struct {
@@ -24,12 +23,12 @@ func NewHooks(p *tea.Program) *UIHooks {
 	}
 }
 
-func (h *UIHooks) OfferSession(sess *server.Session, res screens.ResponseChannel) {
-	h.program.Send(&screens.SessionOffer{Sess: sess, Res: res})
+func (h *UIHooks) OfferSession(sess *server.Session, res sessions.ResponseChannel) {
+	h.program.Send(&sessions.SessionOffer{Sess: sess, Res: res})
 }
 
 func (h *UIHooks) SessionFinished() {
-	h.program.Send(screens.SessionFinished(true))
+	h.program.Send(sessions.SessionFinished(true))
 }
 
 func NewPeerMap(prog *tea.Program) *PeerMap {

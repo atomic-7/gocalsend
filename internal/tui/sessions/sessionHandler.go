@@ -1,4 +1,4 @@
-package screens
+package sessions
 
 import(
 	"fmt"
@@ -9,7 +9,7 @@ import(
 	"github.com/atomic-7/gocalsend/internal/server"
 )
 
-type SOModel struct {
+type Model struct {
 		cursor int
 		SessionManager *server.SessionManager
 		sessionOffers  []*SessionOffer
@@ -21,28 +21,28 @@ type SessionOffer struct {
 type ResponseChannel = chan bool
 type SessionFinished bool
 
-func NewSessionHandler(sessionManager *server.SessionManager) SOModel {
-	return SOModel{
+func NewSessionHandler(sessionManager *server.SessionManager) Model {
+	return Model{
 		cursor: 0,
 		SessionManager: sessionManager,
 		sessionOffers:  make([]*SessionOffer, 0, 10),
 	}	
 }
 
-func (m *SOModel) cursorUp() {
+func (m *Model) cursorUp() {
 	if m.cursor > 0 {
 		m.cursor -= 1
 	}
 }
 
-func (m *SOModel) cursorDown() {
+func (m *Model) cursorDown() {
 	if m.cursor < len(m.sessionOffers)-1 {
 		m.cursor += 1
 	}
 }
 
 
-func (m *SOModel) acceptSession() {
+func (m *Model) acceptSession() {
 	if len(m.sessionOffers) != 0 {
 		m.sessionOffers[m.cursor].Res <- true
 		m.sessionOffers = append(m.sessionOffers[:m.cursor], m.sessionOffers[m.cursor+1:]...)
@@ -53,7 +53,7 @@ func (m *SOModel) acceptSession() {
 		m.cursor -= 1
 	}
 }
-func (m *SOModel) denySession() {
+func (m *Model) denySession() {
 	if len(m.sessionOffers) != 0 {
 		m.sessionOffers[m.cursor].Res <- false
 		m.sessionOffers = append(m.sessionOffers[:m.cursor], m.sessionOffers[m.cursor+1:]...)
@@ -64,21 +64,21 @@ func (m *SOModel) denySession() {
 		m.cursor -= 1
 	}
 }
-func (m *SOModel) denyAll() {
+func (m *Model) denyAll() {
 	for _, offer := range m.sessionOffers {
 		offer.Res <- false
 	}
 	m.sessionOffers = make([]*SessionOffer, 0, 10)
 }
-func (m *SOModel) ShouldClose() bool {
+func (m *Model) ShouldClose() bool {
 	return len(m.sessionOffers) == 0
 }
 
-func (m SOModel) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-func (m SOModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case *SessionOffer:
 		m.sessionOffers = append(m.sessionOffers, msg)
@@ -113,7 +113,7 @@ func (m SOModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m SOModel) View() string {
+func (m Model) View() string {
 	var b strings.Builder
 	b.WriteString("Incoming transfers\n")
 	slog.Debug("render", slog.Any("sessions", m.sessionOffers))
