@@ -66,80 +66,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cursor = 0
 		m.sessionOffers = append(m.sessionOffers, msg)
 	}
+	slog.Debug("main update", slog.Any("msg", msg))
 	switch m.screen {
 	case peerScreen:
-		return m.peerModel.Update(msg)
+		res, cmd := m.peerModel.Update(msg)
+		m.peerModel = res.(screens.PSModel)
+		return m,cmd
 	case acceptScreen:
 		// TODO: use batch to create a timer that sends false on the response channel
-		return acceptScreenUpdate(msg, m)
-	}
-	return m, nil
-}
-
-func (m *Model) cursorUp() {
-	if m.cursor > 0 {
-		m.cursor -= 1
-	}
-}
-
-func (m *Model) cursorDown() {
-	if m.cursor < len(m.peers)-1 {
-		m.cursor += 1
-	}
-}
-
-func (m *Model) acceptSession() {
-	if len(m.sessionOffers) != 0 {
-		m.sessionOffers[m.cursor].res <- true
-		m.sessionOffers = append(m.sessionOffers[:m.cursor], m.sessionOffers[m.cursor+1:]...)
-	}
-}
-func (m *Model) denySession() {
-	if len(m.sessionOffers) != 0 {
-		m.sessionOffers[m.cursor].res <- false
-		m.sessionOffers = append(m.sessionOffers[:m.cursor], m.sessionOffers[m.cursor+1:]...)
-	}
-}
-func acceptScreenUpdate(msg tea.Msg, m Model) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			m.denySession()
-			if len(m.sessionOffers) == 0 {
-				m.cursor = 0
-				m.screen = peerScreen
-			} else {
-				m.cursor -= 1
-			}
-			return m, nil
-		case tea.KeyUp:
-			m.cursorUp()
-		case tea.KeyDown:
-			m.cursorDown()
-		case tea.KeyEnter, tea.KeySpace:
-			slog.Info("entry selected", slog.String("screen", "acceptScreen"))
-			m.acceptSession()
-			if len(m.sessionOffers) == 0 {
-				m.cursor = 0
-				m.screen = peerScreen
-			} else {
-				m.cursor -= 1
-			}
-			return m, nil
-		case tea.KeyRunes:
-			switch string(msg.Runes) {
-			case "q":
-				m.denySession()
-				m.cursor = 0
-				m.screen = peerScreen
-				return m, nil
-			case "j":
-				m.cursorDown()
-			case "k":
-				m.cursorUp()
-			}
+		res,cmd := m.sessionModel.Update(msg)
+		m.sessionModel = res.(screens.SOModel)
+		
+		if m.sessionModel.ShouldClose() {
+			slog.Debug("session handler screen should close")
+			m.screen = peerScreen
+			// return m.Update(nil)
 		}
+		return m,cmd
 	}
 	return m, nil
 }
