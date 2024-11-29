@@ -47,12 +47,28 @@ func (m *SOModel) acceptSession() {
 		m.sessionOffers[m.cursor].Res <- true
 		m.sessionOffers = append(m.sessionOffers[:m.cursor], m.sessionOffers[m.cursor+1:]...)
 	}
+	if len(m.sessionOffers) == 0 {
+		m.cursor = 0
+	} else {
+		m.cursor -= 1
+	}
 }
 func (m *SOModel) denySession() {
 	if len(m.sessionOffers) != 0 {
 		m.sessionOffers[m.cursor].Res <- false
 		m.sessionOffers = append(m.sessionOffers[:m.cursor], m.sessionOffers[m.cursor+1:]...)
 	}
+	if len(m.sessionOffers) == 0 {
+		m.cursor = 0
+	} else {
+		m.cursor -= 1
+	}
+}
+func (m *SOModel) denyAll() {
+	for _, offer := range m.sessionOffers {
+		offer.Res <- false
+	}
+	m.sessionOffers = make([]*SessionOffer, 0, 10)
 }
 func (m *SOModel) ShouldClose() bool {
 	return len(m.sessionOffers) == 0
@@ -66,17 +82,11 @@ func (m SOModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case *SessionOffer:
 		m.sessionOffers = append(m.sessionOffers, msg)
-
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC:
-			m.denySession()
-			if len(m.sessionOffers) == 0 {
-				m.cursor = 0
-			} else {
-				m.cursor -= 1
-			}
-			return m, nil
+			m.denyAll()
+			return m, tea.Quit
 		case tea.KeyUp:
 			m.cursorUp()
 		case tea.KeyDown:
@@ -84,27 +94,19 @@ func (m SOModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter, tea.KeySpace:
 			slog.Info("entry selected", slog.String("screen", "acceptScreen"))
 			m.acceptSession()
-			if len(m.sessionOffers) == 0 {
-				m.cursor = 0
-			} else {
-				m.cursor -= 1
-			}
-			return m, nil
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
 			case "q":
-				m.denySession()
+				m.denyAll()
 				m.cursor = 0
-				// deny all sessions here?
-				if len(m.sessionOffers) == 0 {
-					m.cursor = 0
-				} else {
-					m.cursor -= 1
-				}
 			case "j":
 				m.cursorDown()
 			case "k":
 				m.cursorUp()
+			case "y":
+				m.acceptSession()
+			case "n":
+				m.denySession()
 			}
 		}
 	}
