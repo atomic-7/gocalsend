@@ -4,31 +4,29 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/data"
 )
 
+type KeyMap struct {
+	Up key.Binding
+	Down key.Binding
+	Confirm key.Binding
+	Quit key.Binding
+}
+
 type PSModel struct {
-	cursor         int
-	peers          []*data.PeerInfo
-	config         *config.Config
+	cursor int
+	peers  []*data.PeerInfo
+	config *config.Config
+	KeyMap KeyMap
 }
 type AddPeerMsg *data.PeerInfo
 type DelPeerMsg = string
-
-func (m *PSModel) cursorUp() {
-	if m.cursor > 0 {
-		m.cursor -= 1
-	}
-}
-
-func (m *PSModel) cursorDown() {
-	if m.cursor < len(m.peers)-1 {
-		m.cursor += 1
-	}
-}
 
 func (m *PSModel) addPeer(peer *data.PeerInfo) {
 	m.peers = append(m.peers, peer)
@@ -51,10 +49,20 @@ func (m *PSModel) delPeer(fingerprint string) {
 	}
 }
 
+func DefaultKeyMap() KeyMap {
+	return KeyMap{
+		Up: key.NewBinding(key.WithKeys("k", "up", "ctrl+p"), key.WithHelp("k", "up")),
+		Down: key.NewBinding(key.WithKeys("j", "down", "ctrl+n"), key.WithHelp("j", "down")),
+		Confirm: key.NewBinding(key.WithKeys("space", "enter"), key.WithHelp("space", "confirm")),
+		Quit: key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+q"), key.WithHelp("q", "quit")),
+	}
+}
+
 func NewPSModel() PSModel {
 	return PSModel{
-		peers:          make([]*data.PeerInfo, 0, 10),
-		cursor:         0,
+		peers:  make([]*data.PeerInfo, 0, 10),
+		cursor: 0,
+		KeyMap: DefaultKeyMap(),
 	}
 }
 
@@ -72,25 +80,21 @@ func (m PSModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case DelPeerMsg:
 		m.delPeer(msg)
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return m, tea.Quit
-		case tea.KeyUp:
-			m.cursorUp()
-		case tea.KeyDown:
-			m.cursorDown()
-		case tea.KeyEnter, tea.KeySpace:
+		switch {
+		case key.Matches(msg, m.KeyMap.Up):
+			if m.cursor > 0 {
+				m.cursor -= 1
+			}
+		case key.Matches(msg, m.KeyMap.Down):
+			if m.cursor < len(m.peers)-1 {
+					m.cursor += 1
+			}
+			
+		case key.Matches(msg, m.KeyMap.Confirm):
 			slog.Info("entry selected", slog.String("screen", "peerScreen"), slog.String("peer", m.peers[m.cursor].Alias))
 			return m, nil
-		case tea.KeyRunes:
-			switch string(msg.Runes) {
-			case "q":
-				return m, tea.Quit
-			case "j":
-				m.cursorDown()
-			case "k":
-				m.cursorUp()
-			}
+		case key.Matches(msg, m.KeyMap.Quit):
+			return m, tea.Quit
 		}
 	}
 	return m, nil
