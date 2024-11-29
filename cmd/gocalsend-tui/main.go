@@ -92,13 +92,16 @@ func main() {
 	defer cancel()
 
 
-	model := tui.NewModel(appConf, nil)
+	model := tui.NewModel(appConf)
 	model.Context = ctx
-	p := tea.NewProgram(model)
+	p := tea.NewProgram(&model)
 	peers := tui.NewPeerMap(p)
 	hooks := tui.NewHooks(p)
 	sessionManager := server.NewSessionManager(appConf.DownloadFolder, hooks)
-	model.SessionManager = sessionManager
+	go func() {
+		// p.Send blocks if the program is not running yet
+		p.Send(tui.AddSessionManager(sessionManager))
+	}()
 
 	runAnnouncement := func() {
 		err := discovery.AnnounceViaMulticast(node, multicastAddr)
