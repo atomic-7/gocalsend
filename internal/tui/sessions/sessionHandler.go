@@ -1,9 +1,12 @@
 package sessions
 
-import(
+import (
 	"fmt"
 	"log/slog"
 	"strings"
+
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/atomic-7/gocalsend/internal/server"
@@ -11,6 +14,8 @@ import(
 
 type Model struct {
 		cursor int
+		KeyMap KeyMap
+		help help.Model
 		SessionManager *server.SessionManager
 		sessionOffers  []*SessionOffer
 }
@@ -24,6 +29,8 @@ type SessionFinished bool
 func NewSessionHandler(sessionManager *server.SessionManager) Model {
 	return Model{
 		cursor: 0,
+		KeyMap: DefaultKeyMap(),
+		help: help.New(),
 		SessionManager: sessionManager,
 		sessionOffers:  make([]*SessionOffer, 0, 10),
 	}	
@@ -83,31 +90,20 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case *SessionOffer:
 		m.sessionOffers = append(m.sessionOffers, msg)
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
+		switch {
+		case key.Matches(msg, m.KeyMap.Up):
+			m.cursorUp()
+		case key.Matches(msg, m.KeyMap.Down):
+			m.cursorDown()
+		case key.Matches(msg, m.KeyMap.Accept):
+			m.acceptSession()
+		case key.Matches(msg, m.KeyMap.Deny):
+			m.denySession()
+		case key.Matches(msg, m.KeyMap.DenyAll):
+			m.denyAll()
+		case key.Matches(msg, m.KeyMap.Quit):
 			m.denyAll()
 			return m, tea.Quit
-		case tea.KeyUp:
-			m.cursorUp()
-		case tea.KeyDown:
-			m.cursorDown()
-		case tea.KeyEnter, tea.KeySpace:
-			slog.Info("entry selected", slog.String("screen", "acceptScreen"))
-			m.acceptSession()
-		case tea.KeyRunes:
-			switch string(msg.Runes) {
-			case "q":
-				m.denyAll()
-				m.cursor = 0
-			case "j":
-				m.cursorDown()
-			case "k":
-				m.cursorUp()
-			case "y":
-				m.acceptSession()
-			case "n":
-				m.denySession()
-			}
 		}
 	}
 	return m, nil
@@ -128,7 +124,40 @@ func (m Model) View() string {
 		}
 	}
 
-	b.WriteString("\nPress Enter/Space to accept.\nPress q or Ctrl+C to deny.\n")
+	b.WriteString("\n\n")
+	b.WriteString(m.help.View(m.KeyMap))
+	b.WriteString("\n")
 
 	return b.String()
+}
+
+func DefaultKeyMap() KeyMap {
+	return KeyMap{
+		Up:      key.NewBinding(key.WithKeys("k", "up", "ctrl+p"), key.WithHelp("k", "up")),
+		Down:    key.NewBinding(key.WithKeys("j", "down", "ctrl+n"), key.WithHelp("j", "down")),
+		Accept: key.NewBinding(key.WithKeys("space", "enter","y"), key.WithHelp("enter", "accept")),
+		Deny: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "deny")),
+		DenyAll: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctr+c", "deny all")),
+		Quit:    key.NewBinding(key.WithKeys("q", "ctrl+q"), key.WithHelp("q", "quit")),
+	}
+}
+
+type KeyMap struct {
+	Up key.Binding
+	Down key.Binding
+	Accept key.Binding
+	Deny key.Binding
+	DenyAll key.Binding
+	Quit key.Binding
+}
+// keybindinds to be shown in the mini help view
+func (k KeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Up, k.Down, k.Accept, k.Deny, k.Quit}
+}
+
+// keybinds to be shown in the full help view
+func (k KeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down, k.Accept, k.Deny, k.DenyAll, k.Quit},
+	}
 }
