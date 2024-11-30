@@ -9,17 +9,16 @@ import (
 	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/server"
 	"github.com/atomic-7/gocalsend/internal/tui/filepicker"
-	"github.com/atomic-7/gocalsend/internal/tui/sessions"
 	"github.com/atomic-7/gocalsend/internal/tui/peers"
+	"github.com/atomic-7/gocalsend/internal/tui/sessions"
 )
 
 // TODO: when a new client registers, send a message to the update function
 // TODO: allow to select clients from a list
-// TODO: listen for keypresses (ctrlq, q, space, enter, j/k, up/down
-// TODO: display the keybinds at the bottom
 // TODO: figure out if peermap should be an interface
 type Model struct {
 	screen       uint
+	prevScreen   uint
 	peerModel    peers.Model
 	sessionModel sessions.Model
 	filepicker   filepicker.Model
@@ -38,10 +37,11 @@ const (
 
 func NewModel(appconfig *config.Config) Model {
 	return Model{
-		screen:    fileSelectScreen,
-		peerModel: peers.NewPSModel(),
+		screen:     fileSelectScreen,
+		prevScreen: peerScreen,
+		peerModel:  peers.NewPSModel(),
 		filepicker: filepicker.New(),
-		config:    appconfig,
+		config:     appconfig,
 	}
 }
 
@@ -49,6 +49,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case *sessions.SessionOffer:
 		slog.Debug("incoming session offer", slog.String("src", "main update"))
+		m.prevScreen = m.screen
 		m.screen = acceptScreen
 	case AddSessionManager:
 		// The session manager needs the reference to the tea program for the hooks
@@ -65,7 +66,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sessionModel, cmd = m.sessionModel.Update(msg)
 		if m.sessionModel.ShouldClose() {
 			slog.Debug("session handler screen should close")
-			m.screen = peerScreen
+			m.screen = m.prevScreen
 		}
 	case fileSelectScreen:
 		m.filepicker, cmd = m.filepicker.Update(msg)
