@@ -38,7 +38,7 @@ const (
 
 func NewModel(appconfig *config.Config) Model {
 	return Model{
-		screen:    peerScreen,
+		screen:    fileSelectScreen,
 		peerModel: peers.NewPSModel(),
 		filepicker: filepicker.New(),
 		config:    appconfig,
@@ -86,5 +86,10 @@ func (m Model) View() string {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.SetWindowTitle("gocalsend-tui")
+	return tea.Batch(
+		m.filepicker.Init(),
+		m.sessionModel.Init(),
+		m.peerModel.Init(),
+		tea.SetWindowTitle("gocalsend-tui"),
+	)
 }
