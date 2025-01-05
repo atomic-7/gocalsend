@@ -7,10 +7,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/atomic-7/gocalsend/internal/config"
+	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/server"
 	"github.com/atomic-7/gocalsend/internal/tui/filepicker"
 	"github.com/atomic-7/gocalsend/internal/tui/peers"
 	"github.com/atomic-7/gocalsend/internal/tui/sessions"
+	"github.com/atomic-7/gocalsend/internal/tui/transfers"
+	"github.com/atomic-7/gocalsend/internal/uploader"
 )
 
 // TODO: when a new client registers, send a message to the update function
@@ -23,6 +26,8 @@ type Model struct {
 	sessionModel sessions.Model
 	filepicker   filepicker.Model
 	config       *config.Config
+	node         *data.PeerInfo
+	upl          *uploader.Uploader
 	Context      context.Context
 }
 
@@ -35,13 +40,15 @@ const (
 	settingsScreen
 )
 
-func NewModel(appconfig *config.Config) Model {
+func NewModel(node *data.PeerInfo, appconfig *config.Config) Model {
 	return Model{
 		screen:     fileSelectScreen,
 		prevScreen: peerScreen,
 		peerModel:  peers.NewPSModel(),
 		filepicker: filepicker.New(),
 		config:     appconfig,
+		upl:        uploader.CreateUploader(node),
+		node:       node,
 	}
 }
 
@@ -55,12 +62,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The session manager needs the reference to the tea program for the hooks
 		// This means the session manager cannot be passed at initial creation of the model, because the model is needed to create the program
 		m.sessionModel = sessions.NewSessionHandler(msg)
+		m.transfers = transfers.New(msg)
 	}
-	slog.Debug("main update", slog.Any("msg", msg))
 	var cmd tea.Cmd
 	switch m.screen {
 	case peerScreen:
 		m.peerModel, cmd = m.peerModel.Update(msg)
+		if m.peerModel.Done {
+			slog.Debug("peer selected", slog.String("peer", m.peerModel.GetPeer().Alias))
+			slog.Debug("uploading files", slog.String("file", m.filepicker.Selected[0]))
+			// send file, display ongoing transfers
+			m.upl.UploadFiles(m.peerModel.GetPeer(), m.filepicker.Selected)
+		}
 	case acceptScreen:
 		// TODO: use batch to create a timer that sends false on the response channel
 		m.sessionModel, cmd = m.sessionModel.Update(msg)
@@ -70,6 +83,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case fileSelectScreen:
 		m.filepicker, cmd = m.filepicker.Update(msg)
+		if m.filepicker.Done {
+			m.screen = peerScreen
+		}
 	}
 	return m, cmd
 }

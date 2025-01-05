@@ -14,6 +14,7 @@ import (
 )
 
 type Model struct {
+	Done   bool
 	cursor int
 	peers  []*data.PeerInfo
 	config *config.Config
@@ -55,9 +56,10 @@ func DefaultKeyMap() KeyMap {
 
 func NewPSModel() Model {
 	return Model{
-		peers:  make([]*data.PeerInfo, 0, 10),
+		Done: false,
 		cursor: 0,
-		help: help.New(),
+		peers:  make([]*data.PeerInfo, 0, 10),
+		help:   help.New(),
 		KeyMap: DefaultKeyMap(),
 	}
 }
@@ -89,6 +91,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 		case key.Matches(msg, m.KeyMap.Confirm):
 			slog.Info("entry selected", slog.String("screen", "peerScreen"), slog.String("peer", m.peers[m.cursor].Alias))
+			m.Done = true
 			return m, nil
 		case key.Matches(msg, m.KeyMap.Quit):
 			return m, tea.Quit
@@ -116,6 +119,10 @@ func (m Model) View() string {
 	b.WriteString("\n")
 
 	return b.String()
+}
+
+func (m *Model) GetPeer() *data.PeerInfo {
+	return m.peers[m.cursor]
 }
 
 // Implements key.Map interface

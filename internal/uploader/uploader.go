@@ -57,7 +57,7 @@ func (cl *Uploader) UploadFiles(peer *data.PeerInfo, files []string) error {
 
 	sessionID, err := cl.prepareUpload(peer, files)
 	if err != nil {
-		slog.Error("failed to upload file", slog.Any("error", err))
+		slog.Error("failed to prepare file upload", slog.Any("error", err))
 		os.Exit(1)
 	}
 

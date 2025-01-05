@@ -92,7 +92,7 @@ func main() {
 	defer cancel()
 
 
-	model := tui.NewModel(appConf)
+	model := tui.NewModel(node, appConf)
 	model.Context = ctx
 	p := tea.NewProgram(&model)
 	peers := tui.NewPeerMap(p)

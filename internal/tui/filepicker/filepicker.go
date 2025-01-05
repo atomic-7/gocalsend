@@ -17,18 +17,18 @@ func New() Model {
 	home, err := os.UserHomeDir()
 	fp.DirAllowed = true
 	fp.AutoHeight = true
-	fp.KeyMap.Open = key.NewBinding(key.WithKeys("l", "right"), key.WithHelp("l", "open"))
-	fp.KeyMap.Select = key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "select"))
+	fp.KeyMap.Open = key.NewBinding(key.WithKeys("l", "right", " "), key.WithHelp("l", "open"))
+	fp.KeyMap.Select = key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "select"))
 	if err != nil {
 		// TODO: display error or just use the cwd the program was started from
 		slog.Debug("failed to get path to home dir", slog.Any("err", err))
 	}
 	fp.CurrentDirectory = home
 	return Model{
-		Done: false,
-		fp:   fp,
+		Done:   false,
+		fp:     fp,
 		KeyMap: DefaultKeyMap(),
-		help: help.New(),
+		help:   help.New(),
 	}
 }
 
@@ -36,8 +36,8 @@ type Model struct {
 	Done     bool
 	Selected []string
 	fp       filepicker.Model
-	KeyMap KeyMap
-	help help.Model
+	KeyMap   KeyMap
+	help     help.Model
 }
 
 func (m Model) Init() tea.Cmd {
@@ -45,24 +45,27 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.KeyMap.Confirm):
-			m.Done = true
+			if len(m.Selected) != 0 {
+				m.Done = true
+				slog.Debug("confirm key caught", slog.Int("files", len(m.Selected)), slog.String("src", "filepicker"))
+			}
 		case key.Matches(msg, m.KeyMap.Quit):
 			return m, tea.Quit
 		}
 	}
 	newfp, cmd := m.fp.Update(msg)
 	m.fp = newfp
-
 	// check if a file was selected
 	if didSelect, path := m.fp.DidSelectFile(msg); didSelect {
-		slog.Debug("file seleected", slog.String("path", path))
+		slog.Debug("file selected", slog.String("path", path))
 		m.Selected = append(m.Selected, path)
 	}
-	// check if a file was selected that the fileters disable
+	// check if a file was selected that the filters disable
 	// if didSelect, path := m.fp.DidSelectDisabledFile(msg); didSelect {
 	// 	//TODO: implement display of error message
 	// }
