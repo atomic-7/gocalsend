@@ -25,6 +25,7 @@ type Model struct {
 	peerModel    peers.Model
 	sessionModel sessions.Model
 	filepicker   filepicker.Model
+	transfers    transfers.Model
 	config       *config.Config
 	node         *data.PeerInfo
 	upl          *uploader.Uploader
