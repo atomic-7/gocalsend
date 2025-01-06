@@ -29,7 +29,7 @@ type Model struct {
 	transfers    transfers.Model
 	config       *config.Config
 	node         *data.PeerInfo
-	Uploader          *uploader.Uploader
+	Uploader     *uploader.Uploader
 	Context      context.Context
 }
 

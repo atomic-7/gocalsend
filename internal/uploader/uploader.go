@@ -17,10 +17,10 @@ import (
 )
 
 type Uploader struct {
-	node    *data.PeerInfo
-	client  *http.Client
+	node      *data.PeerInfo
+	client    *http.Client
 	tlsclient *http.Client
-	sessMan *server.SessionManager
+	sessMan   *server.SessionManager
 }
 
 // node is the peerinfo of the local node
@@ -45,10 +45,10 @@ func CreateUploader(node *data.PeerInfo, sman *server.SessionManager) *Uploader 
 		Timeout: time.Duration(120 * time.Second),
 	}
 	return &Uploader{
-		node:    node,
-		client:  client,
+		node:      node,
+		client:    client,
 		tlsclient: tlsclient,
-		sessMan: sman,
+		sessMan:   sman,
 	}
 }
 

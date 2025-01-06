@@ -17,7 +17,7 @@ import (
 )
 
 func reqLogger(w http.ResponseWriter, r *http.Request) {
-	slog.Info("request", slog.Any("request",r))
+	slog.Info("request", slog.Any("request", r))
 }
 
 func createPrepareUploadHandler(sman *SessionManager) http.Handler {
@@ -143,7 +143,7 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 		path := sman.BasePath
 		if file.Destination != "" {
 			path = file.Destination
-			// TODO: Create potentially missing folders 
+			// TODO: Create potentially missing folders
 		}
 		logga.Debug("dl path", slog.String("path", path), slog.String("name", file.FileName), slog.String("dest", file.Destination))
 
@@ -165,7 +165,7 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 			w.WriteHeader(500)
 			return
 		}
-		// Not a deferred close to be able to catch errors that might happen when closing a file after writing 
+		// Not a deferred close to be able to catch errors that might happen when closing a file after writing
 		err = osFile.Close()
 		if err != nil {
 			logga.Error("failed to close file", slog.String("file", file.FileName), slog.Any("error", err))
@@ -186,7 +186,7 @@ func createCancelHandler(sman *SessionManager) http.Handler {
 			w.WriteHeader(500)
 			return
 		}
-		if !r.Form.Has("sessionId") {	// It seems that the reference implementation does not send a sessionId to cancel?
+		if !r.Form.Has("sessionId") { // It seems that the reference implementation does not send a sessionId to cancel?
 			slog.Error("cancel request without session id")
 			slog.Debug("cancel query", slog.String("url", r.URL.String()), slog.String("handler", "cancel"))
 			w.WriteHeader(400)

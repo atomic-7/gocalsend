@@ -17,14 +17,14 @@ type SessionManager struct {
 	Serial   int
 	Sessions map[string]*Session
 	lock     sync.Mutex
-	ui        UIHooks
+	ui       UIHooks
 }
 
 // maybe track which peer this session belongs to. Needed to check for 403
 type Session struct {
 	SessionID string
 	Files     map[string]*data.File //map between file ids and file structs
-	Remaining  int
+	Remaining int
 	lock      sync.Mutex
 }
 
@@ -40,7 +40,7 @@ func NewSessionManager(basePath string, uihooks UIHooks) *SessionManager {
 		BasePath: basePath,
 		Serial:   1,
 		Sessions: make(map[string]*Session),
-		ui: uihooks,
+		ui:       uihooks,
 	}
 }
 
@@ -69,20 +69,20 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 	}
 
 	sessionCandidate := &Session{
-					SessionID: sessID,
-					Files:     idToFile,
-					Remaining:  len(idToFile),
-				}
+		SessionID: sessID,
+		Files:     idToFile,
+		Remaining: len(idToFile),
+	}
 
 	res := make(chan bool)
 	sm.ui.OfferSession(sessionCandidate, res)
 	timer := time.NewTimer(1 * time.Minute)
 	answer := false
 	select {
-		case <- timer.C:
-			slog.Debug("Session offer timed out", slog.Any("sess", sessInfo))
-		case answer = <- res:
-			slog.Debug("User accepted session")
+	case <-timer.C:
+		slog.Debug("Session offer timed out", slog.Any("sess", sessInfo))
+	case answer = <-res:
+		slog.Debug("User accepted session")
 	}
 	if answer {
 		sm.lock.Lock()
@@ -104,7 +104,7 @@ func (sm *SessionManager) RegisterSession(sess *data.SessionInfo, files map[stri
 	sm.Sessions[sessID] = &Session{
 		SessionID: sess.SessionID,
 		Files:     files,
-		Remaining:  len(files),
+		Remaining: len(files),
 	}
 	sm.lock.Unlock()
 	return sessID
@@ -155,7 +155,7 @@ func (sm *SessionManager) FinishSession(sessionId string) {
 }
 
 // headless implementation of the ui hook interface
-type HeadlessUI struct {}
+type HeadlessUI struct{}
 
 func (hui *HeadlessUI) OfferSession(sess *Session, res chan bool) {
 	res <- true

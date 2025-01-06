@@ -95,7 +95,7 @@ func (c *Config) Store(path string) error {
 		}
 		path = filepath.Join(confdir, "gocalsend", "config.toml")
 	}
-	logga = slog.Default().With(slog.String("path", path))	// path is now != ""
+	logga = slog.Default().With(slog.String("path", path)) // path is now != ""
 	if filepath.Ext(path) != ".toml" {
 		// TODO return IncorrectFileExt here
 		err = errors.New("config file path has incorrect file extension")
