@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/atomic-7/gocalsend/internal/tui/hooks"
 	"github.com/atomic-7/gocalsend/internal/server"
 )
 
@@ -17,14 +18,8 @@ type Model struct {
 		KeyMap KeyMap
 		help help.Model
 		SessionManager *server.SessionManager
-		sessionOffers  []*SessionOffer
+		sessionOffers  []*hooks.SessionOffer
 }
-type SessionOffer struct {
-	Sess *server.Session
-	Res  ResponseChannel
-}
-type ResponseChannel = chan bool
-type SessionFinished bool
 
 func NewSessionHandler(sessionManager *server.SessionManager) Model {
 	return Model{
@@ -32,7 +27,7 @@ func NewSessionHandler(sessionManager *server.SessionManager) Model {
 		KeyMap: DefaultKeyMap(),
 		help: help.New(),
 		SessionManager: sessionManager,
-		sessionOffers:  make([]*SessionOffer, 0, 10),
+		sessionOffers:  make([]*hooks.SessionOffer, 0, 10),
 	}	
 }
 
@@ -75,7 +70,7 @@ func (m *Model) denyAll() {
 	for _, offer := range m.sessionOffers {
 		offer.Res <- false
 	}
-	m.sessionOffers = make([]*SessionOffer, 0, 10)
+	m.sessionOffers = make([]*hooks.SessionOffer, 0, 10)
 }
 func (m *Model) ShouldClose() bool {
 	return len(m.sessionOffers) == 0
@@ -87,7 +82,7 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case *SessionOffer:
+	case *hooks.SessionOffer:
 		m.sessionOffers = append(m.sessionOffers, msg)
 	case tea.KeyMsg:
 		switch {

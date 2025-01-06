@@ -15,7 +15,9 @@ import (
 	"github.com/atomic-7/gocalsend/internal/discovery"
 	"github.com/atomic-7/gocalsend/internal/encryption"
 	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/tui/hooks"
 	"github.com/atomic-7/gocalsend/internal/tui"
+	"github.com/atomic-7/gocalsend/internal/uploader"
 )
 
 func main() {
@@ -95,8 +97,10 @@ func main() {
 	model := tui.NewModel(node, appConf)
 	model.Context = ctx
 	p := tea.NewProgram(&model)
-	peers := tui.NewPeerMap(p)
-	hooks := tui.NewHooks(p)
+	peers := hooks.NewPeerMap(p)
+	hooks := hooks.NewHooks(p)
+	uplman := server.NewSessionManager(appConf.DownloadFolder, hooks)
+	model.Uploader = uploader.CreateUploader(node, uplman)
 	sessionManager := server.NewSessionManager(appConf.DownloadFolder, hooks)
 	go func() {
 		// p.Send blocks if the program is not running yet

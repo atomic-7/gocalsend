@@ -16,19 +16,21 @@ import (
 type Model struct {
 	Done   bool
 	cursor int
+	// TODO: maybe consider just passing in the peermap
 	peers  []*data.PeerInfo
 	config *config.Config
 	help   help.Model
 	KeyMap KeyMap
 }
+// These need to be handled outside of the component so peers are not missed when the component is not update
 type AddPeerMsg *data.PeerInfo
 type DelPeerMsg = string
 
-func (m *Model) addPeer(peer *data.PeerInfo) {
+func (m *Model) AddPeer(peer *data.PeerInfo) {
 	m.peers = append(m.peers, peer)
 }
 
-func (m *Model) delPeer(fingerprint string) {
+func (m *Model) DelPeer(fingerprint string) {
 	elem := -1
 	for idx, peer := range m.peers {
 		if peer.Fingerprint == fingerprint {
@@ -65,16 +67,12 @@ func NewPSModel() Model {
 }
 
 func (m Model) Init() tea.Cmd {
+	// TOOD: refresh list of peers 
 	return nil
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case AddPeerMsg:
-		m.addPeer(msg)
-		slog.Debug("received peermessage", slog.String("peer", msg.Alias))
-	case DelPeerMsg:
-		m.delPeer(msg)
 	case tea.WindowSizeMsg:
 		// help truncates if the width is not enough
 		m.help.Width = msg.Width

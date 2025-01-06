@@ -1,4 +1,4 @@
-package tui
+package hooks
 
 import (
 	"log/slog"
@@ -9,7 +9,6 @@ import (
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/server"
 	"github.com/atomic-7/gocalsend/internal/tui/peers"
-	"github.com/atomic-7/gocalsend/internal/tui/sessions"
 )
 
 // this could be rewritten to where the model is implementing the PeerMap interface
@@ -22,13 +21,29 @@ func NewHooks(p *tea.Program) *UIHooks {
 		program: p,
 	}
 }
+type FileFinished bool
+type SessionFinished bool
+type SessionCancelled bool
+type ResponseChannel = chan bool
+type SessionOffer struct {
+	Sess *server.Session
+	Res  ResponseChannel
+}
 
-func (h *UIHooks) OfferSession(sess *server.Session, res sessions.ResponseChannel) {
-	h.program.Send(&sessions.SessionOffer{Sess: sess, Res: res})
+func (h *UIHooks) OfferSession(sess *server.Session, res ResponseChannel) {
+	h.program.Send(&SessionOffer{Sess: sess, Res: res})
+}
+
+func (h *UIHooks) FileFinished() {
+	h.program.Send(FileFinished(true))
 }
 
 func (h *UIHooks) SessionFinished() {
-	h.program.Send(sessions.SessionFinished(true))
+	h.program.Send(SessionFinished(true))
+}
+
+func (h *UIHooks) SessionCancelled() {
+	h.program.Send(SessionCancelled(true))
 }
 
 func NewPeerMap(prog *tea.Program) *PeerMap {

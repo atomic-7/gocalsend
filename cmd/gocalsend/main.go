@@ -211,7 +211,8 @@ func main() {
 		}
 		peers.ReleaseMap()
 		slog.Debug("Peer", slog.Any("info", target))
-		upl := uploader.CreateUploader(node)
+		uplman := server.NewSessionManager(appConf.DownloadFolder, &hui)
+		upl := uploader.CreateUploader(node, uplman)
 		upl.UploadFiles(target, flag.Args())
 	case "rcv", "rec", "recv", "receive":
 		ticker := time.NewTicker(1 * time.Minute)

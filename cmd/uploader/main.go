@@ -97,7 +97,8 @@ func main() {
 	go server.StartServer(ctx, &node, peers, sessionManager, tlsInfo, outFolder)
 	go discovery.MonitorMulticast(ctx, multicastAddr, &node, peers, registratinator)
 
-	upl := uploader.CreateUploader(&node)
+	uplman := server.NewSessionManager(outFolder, &hui)
+	upl := uploader.CreateUploader(&node, uplman)
 
 	time.Sleep(5000)
 	upl.UploadFiles(&peer, flag.Args())

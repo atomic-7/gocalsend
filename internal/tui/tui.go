@@ -10,6 +10,7 @@ import (
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/server"
 	"github.com/atomic-7/gocalsend/internal/tui/filepicker"
+	"github.com/atomic-7/gocalsend/internal/tui/hooks"
 	"github.com/atomic-7/gocalsend/internal/tui/peers"
 	"github.com/atomic-7/gocalsend/internal/tui/sessions"
 	"github.com/atomic-7/gocalsend/internal/tui/transfers"
@@ -28,7 +29,7 @@ type Model struct {
 	transfers    transfers.Model
 	config       *config.Config
 	node         *data.PeerInfo
-	upl          *uploader.Uploader
+	Uploader          *uploader.Uploader
 	Context      context.Context
 }
 
@@ -39,6 +40,7 @@ const (
 	acceptScreen
 	fileSelectScreen
 	settingsScreen
+	transfersScreen
 )
 
 func NewModel(node *data.PeerInfo, appconfig *config.Config) Model {
@@ -48,14 +50,13 @@ func NewModel(node *data.PeerInfo, appconfig *config.Config) Model {
 		peerModel:  peers.NewPSModel(),
 		filepicker: filepicker.New(),
 		config:     appconfig,
-		upl:        uploader.CreateUploader(node),
 		node:       node,
 	}
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case *sessions.SessionOffer:
+	case *hooks.SessionOffer:
 		slog.Debug("incoming session offer", slog.String("src", "main update"))
 		m.prevScreen = m.screen
 		m.screen = acceptScreen
@@ -64,17 +65,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// This means the session manager cannot be passed at initial creation of the model, because the model is needed to create the program
 		m.sessionModel = sessions.NewSessionHandler(msg)
 		m.transfers = transfers.New(msg)
+		// Did not call init!!!!
+	case peers.AddPeerMsg:
+		m.peerModel.AddPeer(msg)
+		slog.Debug("received peermessage", slog.String("peer", msg.Alias))
+	case peers.DelPeerMsg:
+		m.peerModel.DelPeer(msg)
 	}
 	var cmd tea.Cmd
 	switch m.screen {
-	case peerScreen:
-		m.peerModel, cmd = m.peerModel.Update(msg)
-		if m.peerModel.Done {
-			slog.Debug("peer selected", slog.String("peer", m.peerModel.GetPeer().Alias))
-			slog.Debug("uploading files", slog.String("file", m.filepicker.Selected[0]))
-			// send file, display ongoing transfers
-			m.upl.UploadFiles(m.peerModel.GetPeer(), m.filepicker.Selected)
-		}
 	case acceptScreen:
 		// TODO: use batch to create a timer that sends false on the response channel
 		m.sessionModel, cmd = m.sessionModel.Update(msg)
@@ -82,12 +81,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			slog.Debug("session handler screen should close")
 			m.screen = m.prevScreen
 		}
+	case peerScreen:
+		m.peerModel, cmd = m.peerModel.Update(msg)
+		if m.peerModel.Done {
+			slog.Debug("peer selected", slog.String("peer", m.peerModel.GetPeer().Alias))
+			slog.Debug("uploading files", slog.String("file", m.filepicker.Selected[0]))
+			// send file, display ongoing transfers
+			// maybe do this in a cmd?
+			go m.Uploader.UploadFiles(m.peerModel.GetPeer(), m.filepicker.Selected)
+			m.screen = transfersScreen
+		}
 	case fileSelectScreen:
 		m.filepicker, cmd = m.filepicker.Update(msg)
 		if m.filepicker.Done {
 			m.screen = peerScreen
 		}
+	case transfersScreen:
+		m.transfers, cmd = m.transfers.Update(msg)
 	}
+
 	return m, cmd
 }
 
@@ -99,6 +111,8 @@ func (m Model) View() string {
 		return m.sessionModel.View()
 	case fileSelectScreen:
 		return m.filepicker.View()
+	case transfersScreen:
+		return m.transfers.View()
 	}
 	return "wth no scren?"
 }

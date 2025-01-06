@@ -24,7 +24,7 @@ type Uploader struct {
 }
 
 // node is the peerinfo of the local node
-func CreateUploader(node *data.PeerInfo) *Uploader {
+func CreateUploader(node *data.PeerInfo, sman *server.SessionManager) *Uploader {
 	slog.Debug("Creating client")
 
 	// TODO: Look into cloning the default transport
@@ -48,7 +48,7 @@ func CreateUploader(node *data.PeerInfo) *Uploader {
 		node:    node,
 		client:  client,
 		tlsclient: tlsclient,
-		sessMan: server.NewSessionManager("/home/atomc/Downloads/gocalsend", &server.HeadlessUI{}),
+		sessMan: sman,
 	}
 }
 

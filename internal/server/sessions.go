@@ -24,13 +24,15 @@ type SessionManager struct {
 type Session struct {
 	SessionID string
 	Files     map[string]*data.File //map between file ids and file structs
-	Finished  int
+	Remaining  int
 	lock      sync.Mutex
 }
 
 type UIHooks interface {
 	OfferSession(*Session, chan bool)
+	FileFinished()
 	SessionFinished()
+	SessionCancelled()
 }
 
 func NewSessionManager(basePath string, uihooks UIHooks) *SessionManager {
@@ -69,7 +71,7 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 	sessionCandidate := &Session{
 					SessionID: sessID,
 					Files:     idToFile,
-					Finished:  len(idToFile),
+					Remaining:  len(idToFile),
 				}
 
 	res := make(chan bool)
@@ -102,7 +104,7 @@ func (sm *SessionManager) RegisterSession(sess *data.SessionInfo, files map[stri
 	sm.Sessions[sessID] = &Session{
 		SessionID: sess.SessionID,
 		Files:     files,
-		Finished:  len(files),
+		Remaining:  len(files),
 	}
 	sm.lock.Unlock()
 	return sessID
@@ -111,6 +113,8 @@ func (sm *SessionManager) RegisterSession(sess *data.SessionInfo, files map[stri
 func (sm *SessionManager) CancelSession(sessionID string) {
 	// Delete associated files if a session is cancelled before it is completed?
 	if _, ok := sm.Sessions[sessionID]; ok {
+		// TODO: Provide info to display about cancelled session
+		sm.ui.SessionCancelled()
 		sm.lock.Lock()
 		delete(sm.Sessions, sessionID)
 		sm.lock.Unlock()
@@ -132,11 +136,13 @@ func (sm *SessionManager) FinishFile(sessID string, fileID string) error {
 	}
 	if !sess.Files[fileID].Done {
 		sess.Files[fileID].Done = true
-		sess.Finished -= 1
+		sess.Remaining -= 1
 	}
-	if sess.Finished <= 0 {
+	if sess.Remaining <= 0 {
 		sm.FinishSession(sess.SessionID)
 	}
+	// TODO: Provied info about the finished file
+	sm.ui.FileFinished()
 	return nil
 }
 
@@ -155,6 +161,14 @@ func (hui *HeadlessUI) OfferSession(sess *Session, res chan bool) {
 	res <- true
 }
 
+func (hui *HeadlessUI) FileFinished() {
+	slog.Debug("headless file finished")
+}
+
 func (hui *HeadlessUI) SessionFinished() {
 	slog.Debug("headless session finished")
+}
+
+func (hui *HeadlessUI) SessionCancelled() {
+	slog.Debug("headless session cancelled")
 }
