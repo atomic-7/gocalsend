@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -107,7 +106,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m Model) View() string {
 	var b strings.Builder
 	b.WriteString("Incoming transfers\n")
-	slog.Debug("render", slog.Any("sessions", m.sessionOffers))
 	for i, offer := range m.sessionOffers {
 		indicator := " "
 		if m.cursor == i {

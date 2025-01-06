@@ -37,6 +37,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 	case hooks.FileFinished:
 		slog.Debug("received file finished msg", slog.String("src", "transfers"))
+	case hooks.SessionFinished:
+		slog.Debug("received session finished msg", slog.String("src", "transfers"))
 	case hooks.SessionCancelled:
 		slog.Debug("received session cancelled msg", slog.String("src", "transfers"))
 

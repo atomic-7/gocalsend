@@ -39,6 +39,7 @@ func (h *UIHooks) FileFinished() {
 }
 
 func (h *UIHooks) SessionFinished() {
+	slog.Debug("sending session finished msg to tui")
 	h.program.Send(SessionFinished(true))
 }
 
