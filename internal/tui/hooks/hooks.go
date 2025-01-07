@@ -22,6 +22,7 @@ func NewHooks(p *tea.Program) *UIHooks {
 	}
 }
 type FileFinished bool
+type SessionCreated bool
 type SessionFinished bool
 type SessionCancelled bool
 type ResponseChannel = chan bool
@@ -36,6 +37,10 @@ func (h *UIHooks) OfferSession(sess *server.Session, res ResponseChannel) {
 
 func (h *UIHooks) FileFinished() {
 	h.program.Send(FileFinished(true))
+}
+
+func (h *UIHooks) SessionCreated() {
+	h.program.Send(SessionCreated(true))
 }
 
 func (h *UIHooks) SessionFinished() {

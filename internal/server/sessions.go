@@ -29,8 +29,10 @@ type Session struct {
 }
 
 type UIHooks interface {
+	// can block until user accpets or times out
 	OfferSession(*Session, chan bool)
 	FileFinished()
+	SessionCreated()
 	SessionFinished()
 	SessionCancelled()
 }
@@ -88,6 +90,7 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 		sm.lock.Lock()
 		sm.Sessions[sessInfo.SessionID] = sessionCandidate
 		sm.lock.Unlock()
+		sm.ui.SessionCreated()
 		return sessInfo
 	} else {
 		return nil
@@ -107,6 +110,7 @@ func (sm *SessionManager) RegisterSession(sess *data.SessionInfo, files map[stri
 		Remaining: len(files),
 	}
 	sm.lock.Unlock()
+	sm.ui.SessionCreated()
 	return sessID
 }
 
@@ -162,11 +166,15 @@ func (hui *HeadlessUI) OfferSession(sess *Session, res chan bool) {
 }
 
 func (hui *HeadlessUI) FileFinished() {
-	slog.Debug("headless file finished")
+	slog.Debug("file finished", slog.String("src", "headless ui"))
+}
+
+func (hui *HeadlessUI) SessionCreated() {
+	slog.Debug("session created", slog.String("src", "headless ui"))
 }
 
 func (hui *HeadlessUI) SessionFinished() {
-	slog.Debug("headless session finished")
+	slog.Debug("session finished", slog.String("src", "headless ui"))
 }
 
 func (hui *HeadlessUI) SessionCancelled() {

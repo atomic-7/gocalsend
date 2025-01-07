@@ -20,7 +20,7 @@ type Uploader struct {
 	node      *data.PeerInfo
 	client    *http.Client
 	tlsclient *http.Client
-	sessMan   *server.SessionManager
+	SessMan   *server.SessionManager
 }
 
 // node is the peerinfo of the local node
@@ -48,7 +48,7 @@ func CreateUploader(node *data.PeerInfo, sman *server.SessionManager) *Uploader 
 		node:      node,
 		client:    client,
 		tlsclient: tlsclient,
-		sessMan:   sman,
+		SessMan:   sman,
 	}
 }
 
@@ -61,14 +61,14 @@ func (cl *Uploader) UploadFiles(peer *data.PeerInfo, files []string) error {
 		os.Exit(1)
 	}
 
-	sess := cl.sessMan.Sessions[sessionID]
+	sess := cl.SessMan.Sessions[sessionID]
 	for _, file := range sess.Files {
 		slog.Info("uploading file", slog.String("file", file.FileName))
 		err = cl.singleUpload(peer, sess.SessionID, file)
 		if err != nil {
 			slog.Error("failed to upload", slog.String("file", file.FileName), slog.Any("error", err))
 		}
-		cl.sessMan.FinishFile(sessionID, file.ID)
+		cl.SessMan.FinishFile(sessionID, file.ID)
 	}
 	return nil
 }
@@ -160,7 +160,7 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 		return "", err
 	}
 	slog.Info("received session", slog.Any("session", sessInfo))
-	sessID := cl.sessMan.RegisterSession(&sessInfo, idmap)
+	sessID := cl.SessMan.RegisterSession(&sessInfo, idmap)
 
 	return sessID, nil
 }

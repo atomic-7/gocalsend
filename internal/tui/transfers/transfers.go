@@ -2,8 +2,8 @@ package transfers
 
 import (
 	"fmt"
-	"strings"
 	"log/slog"
+	"strings"
 
 	"github.com/atomic-7/gocalsend/internal/server"
 	"github.com/atomic-7/gocalsend/internal/tui/hooks"
@@ -12,18 +12,19 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-
 type Model struct {
-	sman   *server.SessionManager
-	help   help.Model
-	KeyMap KeyMap
+	incoming *server.SessionManager
+	outbound *server.SessionManager
+	help     help.Model
+	KeyMap   KeyMap
 }
 
-func New(sman *server.SessionManager) Model {
+func New(dlman *server.SessionManager, uplman *server.SessionManager) Model {
 	return Model{
-		sman: sman,
-		help: help.New(),
-		KeyMap: DefaultKeyMap(),
+		incoming: dlman,
+		outbound: uplman,
+		help:     help.New(),
+		KeyMap:   DefaultKeyMap(),
 	}
 }
 
@@ -32,11 +33,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.KeyMap.Quit):
-		// TODO: cancel all ongoing sessions
+			// TODO: cancel all ongoing sessions
 			return m, tea.Quit
 		}
 	case hooks.FileFinished:
 		slog.Debug("received file finished msg", slog.String("src", "transfers"))
+	case hooks.SessionCreated:
+		slog.Debug("received session start msg", slog.String("src", "transfers"))
 	case hooks.SessionFinished:
 		slog.Debug("received session finished msg", slog.String("src", "transfers"))
 	case hooks.SessionCancelled:
@@ -49,10 +52,21 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m Model) View() string {
 	var b strings.Builder
 	b.WriteString("Transfers\n\n")
-	for k, s := range m.sman.Sessions {
-		fmt.Fprintf(&b, " %s | %s (%d / %d)\n", k, s.SessionID)
+	// TODO: Track which clients belong to which sessions so it can be displayed
+	if len(m.incoming.Sessions) != 0 {
+		b.WriteString("Downloads\n")
+		for k, s := range m.incoming.Sessions {
+			fmt.Fprintf(&b, " %s | %s (%d / %d)\n", k, s.SessionID, s.Remaining, len(s.Files))
+		}
+		b.WriteString("\n\n")
 	}
-	b.WriteString("\n\n")
+	if len(m.outbound.Sessions) != 0 {
+		b.WriteString("Uploads\n")
+		for k, s := range m.outbound.Sessions {
+			fmt.Fprintf(&b, " %s | %s (%d / %d)\n", k, s.SessionID, s.Remaining, len(s.Files))
+		}
+		b.WriteString("\n\n")
+	}
 	b.WriteString(m.help.View(m.KeyMap))
 	return b.String()
 }

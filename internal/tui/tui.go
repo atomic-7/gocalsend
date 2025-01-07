@@ -17,9 +17,6 @@ import (
 	"github.com/atomic-7/gocalsend/internal/uploader"
 )
 
-// TODO: when a new client registers, send a message to the update function
-// TODO: allow to select clients from a list
-// TODO: figure out if peermap should be an interface
 type Model struct {
 	screen       uint
 	prevScreen   uint
@@ -87,6 +84,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			slog.Debug("uploading files", slog.String("file", m.filepicker.Selected[0]))
 			// send file, display ongoing transfers
 			m.screen = transfersScreen
+			cmd = tea.Batch(cmd, func () tea.Msg {
+				m.Uploader.UploadFiles(m.peerModel.GetPeer(), m.filepicker.Selected)
+				slog.Debug("uploader finished")
+				return nil
+			}, func () tea.Msg {
+				return hooks.SessionCreated(true)
+			})
 		}
 	case fileSelectScreen:
 		m.filepicker, cmd = m.filepicker.Update(msg)
