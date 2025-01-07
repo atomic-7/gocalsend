@@ -15,8 +15,8 @@ import (
 	"github.com/atomic-7/gocalsend/internal/discovery"
 	"github.com/atomic-7/gocalsend/internal/encryption"
 	"github.com/atomic-7/gocalsend/internal/server"
-	"github.com/atomic-7/gocalsend/internal/tui/hooks"
 	"github.com/atomic-7/gocalsend/internal/tui"
+	"github.com/atomic-7/gocalsend/internal/tui/hooks"
 	"github.com/atomic-7/gocalsend/internal/uploader"
 )
 
@@ -93,19 +93,15 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-
 	model := tui.NewModel(node, appConf)
 	model.Context = ctx
 	p := tea.NewProgram(&model)
 	peers := hooks.NewPeerMap(p)
-	hooks := hooks.NewHooks(p)
-	uplman := server.NewSessionManager(appConf.DownloadFolder, hooks)
-	model.Uploader = uploader.CreateUploader(node, uplman)
-	sessionManager := server.NewSessionManager(appConf.DownloadFolder, hooks)
-	go func() {
-		// p.Send blocks if the program is not running yet
-		p.Send(tui.AddSessionManager(sessionManager))
-	}()
+	uihooks := hooks.NewHooks(p)
+	uplManager := server.NewSessionManager(appConf.DownloadFolder, uihooks)
+	model.Uploader = uploader.CreateUploader(node, uplManager)
+	dlManager := server.NewSessionManager(appConf.DownloadFolder, uihooks)
+	model.SetupSessionManagers(dlManager, uplManager)
 
 	runAnnouncement := func() {
 		err := discovery.AnnounceViaMulticast(node, multicastAddr)
@@ -113,7 +109,7 @@ func main() {
 			registratinator.RegisterAtSubnet(ctx, peers)
 		}
 	}
-	go server.StartServer(ctx, node, peers, sessionManager, appConf.TLSInfo, appConf.DownloadFolder)
+	go server.StartServer(ctx, node, peers, dlManager, appConf.TLSInfo, appConf.DownloadFolder)
 	go discovery.MonitorMulticast(ctx, multicastAddr, node, peers, registratinator)
 	runAnnouncement()
 	ticker := time.NewTicker(1 * time.Minute)

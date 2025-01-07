@@ -54,18 +54,17 @@ func NewModel(node *data.PeerInfo, appconfig *config.Config) Model {
 	}
 }
 
+func (m *Model) SetupSessionManagers(dlman *server.SessionManager, uplman *server.SessionManager) {
+	m.sessionModel = sessions.NewSessionHandler(dlman)
+	m.transfers = transfers.New(dlman, uplman)
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case *hooks.SessionOffer:
 		slog.Debug("incoming session offer", slog.String("src", "main update"))
 		m.prevScreen = m.screen
 		m.screen = acceptScreen
-	case AddSessionManager:
-		// The session manager needs the reference to the tea program for the hooks
-		// This means the session manager cannot be passed at initial creation of the model, because the model is needed to create the program
-		m.sessionModel = sessions.NewSessionHandler(msg)
-		m.transfers = transfers.New(msg)
-		// Did not call init!!!!
 	case peers.AddPeerMsg:
 		m.peerModel.AddPeer(msg)
 		slog.Debug("received peermessage", slog.String("peer", msg.Alias))
@@ -87,8 +86,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			slog.Debug("peer selected", slog.String("peer", m.peerModel.GetPeer().Alias))
 			slog.Debug("uploading files", slog.String("file", m.filepicker.Selected[0]))
 			// send file, display ongoing transfers
-			// maybe do this in a cmd?
-			go m.Uploader.UploadFiles(m.peerModel.GetPeer(), m.filepicker.Selected)
 			m.screen = transfersScreen
 		}
 	case fileSelectScreen:
