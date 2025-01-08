@@ -100,6 +100,7 @@ type PeerTracker interface {
 	Get(string) (*PeerInfo, bool)
 	Add(*PeerInfo) bool
 	Del(*PeerInfo)
+	Find(func(*PeerInfo) bool) *PeerInfo
 }
 
 // Implements PeerTracker
@@ -138,6 +139,16 @@ func (pm *PeerMap) Get(fingerprint string) (*PeerInfo, bool) {
 	peer, ok := pm.peers[fingerprint]
 	pm.lock.Unlock()
 	return peer, ok
+}
+
+// return a pointer to the PeerInfo satisfying the predicate, nil if no peer matches
+func (pm *PeerMap) Find(pred func(*PeerInfo) bool) *PeerInfo {
+	for _, peer := range pm.peers {
+		if pred(peer) {
+			return peer
+		}
+	}
+	return nil
 }
 
 func (pm *PeerMap) GetMap() *map[string]*PeerInfo {

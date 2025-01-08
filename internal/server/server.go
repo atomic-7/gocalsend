@@ -21,7 +21,7 @@ func reqLogger(w http.ResponseWriter, r *http.Request) {
 	slog.Info("request", slog.Any("request", r))
 }
 
-func createPrepareUploadHandler(sman *sessions.SessionManager) http.Handler {
+func createPrepareUploadHandler(sman *sessions.SessionManager, peers data.PeerTracker) http.Handler {
 	logga := slog.Default().With(slog.String("handler", "prepare upload"))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 204 Finished, no file transfer needed
@@ -54,7 +54,11 @@ func createPrepareUploadHandler(sman *sessions.SessionManager) http.Handler {
 		logga.Debug("Files to tokens")
 		// maybe track the client to which this session belongs?
 		// TODO: use session manager to check if the user wants to accept the incoming request
-		sess := sman.CreateSession(payload.Files)
+		pred := func(p *data.PeerInfo) bool {
+			return p.IP.Equal(net.IP(r.RemoteAddr))
+		}
+		peer := peers.Find(pred)
+		sess := sman.CreateSession(peer, payload.Files)
 		if sess == nil {
 			w.WriteHeader(403)
 			logga.Debug("user declined session")
@@ -265,7 +269,7 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers data.PeerT
 	slog.Debug("NodeJson", slog.String("json", string(jsonBuf)))
 
 	infoHandler := createInfoHandler(jsonBuf)
-	prepUploadHandler := createPrepareUploadHandler(sessionManager)
+	prepUploadHandler := createPrepareUploadHandler(sessionManager, peers)
 	uploadHandler := createUploadHandler(sessionManager)
 	cancelHandler := createCancelHandler(sessionManager)
 	mux := http.NewServeMux()

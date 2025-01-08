@@ -83,3 +83,6 @@ func (pm *PeerMap) Has(fingerprint string) bool {
 func (pm *PeerMap) Get(fingerprint string) (*data.PeerInfo, bool) {
 	return pm.peers.Get(fingerprint)
 }
+func (pm *PeerMap) Find(pred func(*data.PeerInfo) bool) *data.PeerInfo {
+	return pm.peers.Find(pred)
+}
