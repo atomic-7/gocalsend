@@ -99,10 +99,10 @@ func main() {
 	p := tea.NewProgram(&model)
 	peers := hooks.NewPeerMap(p)
 	uihooks := hooks.NewHooks(p)
-	uplManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
-	model.Uploader = uploader.CreateUploader(node, uplManager)
-	dlManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
-	model.SetupSessionManagers(dlManager, uplManager)
+	sessionManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
+	model.Uploader = uploader.CreateUploader(node, sessionManager)
+	// dlManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
+	model.SetupSessionManagers(sessionManager)
 
 	runAnnouncement := func() {
 		err := discovery.AnnounceViaMulticast(node, multicastAddr)
@@ -110,7 +110,7 @@ func main() {
 			registratinator.RegisterAtSubnet(ctx, peers)
 		}
 	}
-	go server.StartServer(ctx, node, peers, dlManager, appConf.TLSInfo, appConf.DownloadFolder)
+	go server.StartServer(ctx, node, peers, sessionManager, appConf.TLSInfo, appConf.DownloadFolder)
 	go discovery.MonitorMulticast(ctx, multicastAddr, node, peers, registratinator)
 	runAnnouncement()
 	ticker := time.NewTicker(1 * time.Minute)

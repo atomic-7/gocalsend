@@ -13,16 +13,16 @@ import (
 )
 
 type Model struct {
+	sman *sessions.SessionManager
 	incoming *sessions.SessionManager
 	outbound *sessions.SessionManager
 	help     help.Model
 	KeyMap   KeyMap
 }
 
-func New(dlman *sessions.SessionManager, uplman *sessions.SessionManager) Model {
+func New(sman *sessions.SessionManager) Model {
 	return Model{
-		incoming: dlman,
-		outbound: uplman,
+		sman: sman,
 		help:     help.New(),
 		KeyMap:   DefaultKeyMap(),
 	}
@@ -53,16 +53,16 @@ func (m Model) View() string {
 	var b strings.Builder
 	b.WriteString("Transfers\n\n")
 	// TODO: Track which clients belong to which sessions so it can be displayed
-	if len(m.incoming.Sessions) != 0 {
+	if len(m.sman.Downloads) != 0 {
 		b.WriteString("Downloads\n")
-		for k, s := range m.incoming.Sessions {
+		for k, s := range m.sman.Downloads {
 			fmt.Fprintf(&b, " %s | %s (%d / %d)\n", k, s.SessionID, s.Remaining, len(s.Files))
 		}
 		b.WriteString("\n\n")
 	}
-	if len(m.outbound.Sessions) != 0 {
+	if len(m.sman.Uploads) != 0 {
 		b.WriteString("Uploads\n")
-		for k, s := range m.outbound.Sessions {
+		for k, s := range m.sman.Uploads {
 			fmt.Fprintf(&b, " %s | %s (%d / %d)\n", k, s.SessionID, s.Remaining, len(s.Files))
 		}
 		b.WriteString("\n\n")

@@ -123,12 +123,13 @@ func createUploadHandler(sman *sessions.SessionManager) http.Handler {
 		sessID := r.Form.Get("sessionId")
 		fileID := r.Form.Get("fileId")
 		token := r.Form.Get("token")
-		if _, ok := sman.Sessions[sessID]; !ok {
+		if _, ok := sman.Downloads[sessID]; !ok {
 			logga.Error("invalid session", slog.String("sessionId", sessID))
 			w.WriteHeader(403)
 			return
 		}
-		sess := sman.Sessions[sessID]
+		// an upload from a peer is a download to the local node
+		sess := sman.Downloads[sessID]
 		// TODO: Check if the sending peer is associated with this session in the session manager
 		if _, ok := sess.Files[fileID]; !ok {
 			logga.Error("invalid fileid", slog.String("fileId", fileID))

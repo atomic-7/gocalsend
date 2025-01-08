@@ -15,9 +15,13 @@ import (
 type SessionManager struct {
 	BasePath string
 	Serial   int
-	Sessions map[string]*Session
-	lock     sync.Mutex
-	ui       UIHooks
+	// Downloads and uploads can probably be combined, but keeping them seperate for now
+	// this makes rendering uploads and downloads seperately easier in the ui
+	Downloads map[string]*Session
+	Uploads   map[string]*Session
+	dlLock    sync.Mutex
+	upLock    sync.Mutex
+	ui        UIHooks
 }
 
 // maybe track which peer this session belongs to. Needed to check for 403
@@ -39,10 +43,11 @@ type UIHooks interface {
 
 func NewSessionManager(basePath string, uihooks UIHooks) *SessionManager {
 	return &SessionManager{
-		BasePath: basePath,
-		Serial:   1,
-		Sessions: make(map[string]*Session),
-		ui:       uihooks,
+		BasePath:  basePath,
+		Serial:    1,
+		Downloads: make(map[string]*Session),
+		Uploads:   make(map[string]*Session),
+		ui:        uihooks,
 	}
 }
 
@@ -87,9 +92,9 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 		slog.Debug("User accepted session")
 	}
 	if answer {
-		sm.lock.Lock()
-		sm.Sessions[sessInfo.SessionID] = sessionCandidate
-		sm.lock.Unlock()
+		sm.dlLock.Lock()
+		sm.Downloads[sessInfo.SessionID] = sessionCandidate
+		sm.dlLock.Unlock()
 		sm.ui.SessionCreated()
 		return sessInfo
 	} else {
@@ -97,42 +102,65 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 	}
 }
 
-func (sm *SessionManager) RegisterSession(sess *data.SessionInfo, files map[string]*data.File) string {
-	sm.Serial += 1
+func (sm *SessionManager) CreateUpload(sess *data.SessionInfo, files map[string]*data.File) string {
+	// sm.Serial += 1
 	for fileID, file := range files {
 		file.Token = sess.Files[fileID]
 	}
-	sm.lock.Lock()
-	sessID := fmt.Sprintf("gclsnd-client-%d", sm.Serial)
-	sm.Sessions[sessID] = &Session{
+	sm.upLock.Lock()
+	// sessID := fmt.Sprintf("gclsnd-client-%d", sm.Serial)
+	// using the session id from the peer could lead to collisions or security risks
+	// this might get acceptable when combined with a check which peer a session belongs to
+	// this is not implemented yet, also makes serial a bit useless
+	sm.Uploads[sess.SessionID] = &Session{
 		SessionID: sess.SessionID,
 		Files:     files,
 		Remaining: len(files),
 	}
-	sm.lock.Unlock()
+	sm.upLock.Unlock()
 	sm.ui.SessionCreated()
-	return sessID
+	return sess.SessionID
 }
 
 func (sm *SessionManager) CancelSession(sessionID string) {
-	// Delete associated files if a session is cancelled before it is completed?
-	if _, ok := sm.Sessions[sessionID]; ok {
+	// TODO: test cancel route with invalid sessionID
+	// TODO: Delete associated files if a session is cancelled before it is completed?
+	if _, ok := sm.Downloads[sessionID]; ok {
 		// TODO: Provide info to display about cancelled session
 		sm.ui.SessionCancelled()
-		sm.lock.Lock()
-		delete(sm.Sessions, sessionID)
-		sm.lock.Unlock()
+		sm.dlLock.Lock()
+		delete(sm.Downloads, sessionID)
+		sm.dlLock.Unlock()
+		slog.Debug("removed download", slog.String("id", sessionID))
+		return
+	}
+	if _, ok := sm.Uploads[sessionID]; ok {
+		sm.ui.SessionCancelled()
+		sm.upLock.Lock()
+		delete(sm.Uploads, sessionID)
+		sm.upLock.Unlock()
+		slog.Debug("removed upload", slog.String("id", sessionID))
 	}
 }
 
 // Finish processing a file. References to sessions can become invalid after calling this if the entire session is finished as well
 func (sm *SessionManager) FinishFile(sessID string, fileID string) error {
-	sm.lock.Lock()
-	if _, ok := sm.Sessions[sessID]; !ok {
-		return errors.New("Invalid session id")
+	set := &sm.Downloads
+
+	sm.dlLock.Lock()
+	sm.upLock.Lock()
+	if _, isDL := sm.Downloads[sessID]; !isDL {
+		if _, isUP := sm.Uploads[sessID]; !isUP {
+			sm.upLock.Unlock()
+			sm.dlLock.Unlock()
+			return errors.New("Invalid session id")
+		}
+		set = &sm.Uploads
 	}
-	sm.lock.Unlock()
-	sess := sm.Sessions[sessID]
+	sm.upLock.Unlock()
+	sm.dlLock.Unlock()
+
+	sess := (*set)[sessID]
 	sess.lock.Lock()
 	defer sess.lock.Unlock()
 	if _, ok := sess.Files[fileID]; !ok {
@@ -145,17 +173,36 @@ func (sm *SessionManager) FinishFile(sessID string, fileID string) error {
 	if sess.Remaining <= 0 {
 		sm.FinishSession(sess.SessionID)
 	}
-	// TODO: Provied info about the finished file
+	// TODO: Provide info about the finished file
 	sm.ui.FileFinished()
 	return nil
 }
 
-func (sm *SessionManager) FinishSession(sessionId string) {
-	sm.lock.Lock()
-	delete(sm.Sessions, sessionId)
-	sm.lock.Unlock()
+func (sm *SessionManager) FinishSession(sessionID string) {
+	set := &sm.Downloads
+
+	sm.dlLock.Lock()
+	sm.upLock.Lock()
+	if _, isDL := sm.Downloads[sessionID]; !isDL {
+		if _, isUP := sm.Uploads[sessionID]; !isUP {
+			for k, v := range sm.Uploads {
+				slog.Debug("upload", slog.String("id", k), slog.String("sess", v.SessionID))
+			}
+			for k, v := range sm.Downloads {
+				slog.Debug("download", slog.String("id", k), slog.String("sess", v.SessionID))
+			}
+			sm.upLock.Unlock()
+			sm.dlLock.Unlock()
+			slog.Error("called finished session with invalid session", slog.String("id", sessionID))
+		}
+		set = &sm.Uploads
+	}
+	sm.upLock.Unlock()
+	sm.dlLock.Unlock()
+
+	delete(*set, sessionID)
 	sm.ui.SessionFinished()
-	slog.Info("Finished session", slog.String("sessionId", sessionId))
+	slog.Info("Finished session", slog.String("sessionId", sessionID))
 }
 
 // headless implementation of the ui hook interface

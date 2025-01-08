@@ -51,9 +51,9 @@ func NewModel(node *data.PeerInfo, appconfig *config.Config) Model {
 	}
 }
 
-func (m *Model) SetupSessionManagers(dlman *sessionmanager.SessionManager, uplman *sessionmanager.SessionManager) {
-	m.sessionModel = sessions.NewSessionHandler(dlman)
-	m.transfers = transfers.New(dlman, uplman)
+func (m *Model) SetupSessionManagers(sman *sessionmanager.SessionManager) {
+	m.sessionModel = sessions.NewSessionHandler(sman)
+	m.transfers = transfers.New(sman)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -84,11 +84,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			slog.Debug("uploading files", slog.String("file", m.filepicker.Selected[0]))
 			// send file, display ongoing transfers
 			m.screen = transfersScreen
-			cmd = tea.Batch(cmd, func () tea.Msg {
+			cmd = tea.Batch(cmd, func() tea.Msg {
 				m.Uploader.UploadFiles(m.peerModel.GetPeer(), m.filepicker.Selected)
 				slog.Debug("uploader finished")
 				return nil
-			}, func () tea.Msg {
+			}, func() tea.Msg {
 				return hooks.SessionCreated(true)
 			})
 		}

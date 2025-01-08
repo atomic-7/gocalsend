@@ -61,7 +61,7 @@ func (cl *Uploader) UploadFiles(peer *data.PeerInfo, files []string) error {
 		os.Exit(1)
 	}
 
-	sess := cl.SessMan.Sessions[sessionID]
+	sess := cl.SessMan.Uploads[sessionID]
 	for _, file := range sess.Files {
 		slog.Info("uploading file", slog.String("file", file.FileName))
 		err = cl.singleUpload(peer, sess.SessionID, file)
@@ -161,7 +161,7 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 		return "", err
 	}
 	slog.Info("received session", slog.Any("session", sessInfo))
-	sessID := cl.SessMan.RegisterSession(&sessInfo, idmap)
+	sessID := cl.SessMan.CreateUpload(&sessInfo, idmap)
 
 	return sessID, nil
 }
