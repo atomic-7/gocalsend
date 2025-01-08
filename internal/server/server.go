@@ -194,6 +194,7 @@ func createCancelHandler(sman *SessionManager) http.Handler {
 		}
 		sessID := r.Form.Get("sessionId")
 		sman.CancelSession(sessID)
+		slog.Debug("cancelled session", slog.String("id", sessID))
 	})
 }
 

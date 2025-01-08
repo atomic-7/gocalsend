@@ -67,6 +67,7 @@ func (cl *Uploader) UploadFiles(peer *data.PeerInfo, files []string) error {
 		err = cl.singleUpload(peer, sess.SessionID, file)
 		if err != nil {
 			slog.Error("failed to upload", slog.String("file", file.FileName), slog.Any("error", err))
+			cl.SessMan.CancelSession(sessionID)
 		}
 		cl.SessMan.FinishFile(sessionID, file.ID)
 	}
