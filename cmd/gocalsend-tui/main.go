@@ -15,6 +15,7 @@ import (
 	"github.com/atomic-7/gocalsend/internal/discovery"
 	"github.com/atomic-7/gocalsend/internal/encryption"
 	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/sessions"
 	"github.com/atomic-7/gocalsend/internal/tui"
 	"github.com/atomic-7/gocalsend/internal/tui/hooks"
 	"github.com/atomic-7/gocalsend/internal/uploader"
@@ -98,9 +99,9 @@ func main() {
 	p := tea.NewProgram(&model)
 	peers := hooks.NewPeerMap(p)
 	uihooks := hooks.NewHooks(p)
-	uplManager := server.NewSessionManager(appConf.DownloadFolder, uihooks)
+	uplManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
 	model.Uploader = uploader.CreateUploader(node, uplManager)
-	dlManager := server.NewSessionManager(appConf.DownloadFolder, uihooks)
+	dlManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
 	model.SetupSessionManagers(dlManager, uplManager)
 
 	runAnnouncement := func() {

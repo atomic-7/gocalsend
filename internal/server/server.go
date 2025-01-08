@@ -14,13 +14,14 @@ import (
 	"strings"
 
 	"github.com/atomic-7/gocalsend/internal/data"
+	"github.com/atomic-7/gocalsend/internal/sessions"
 )
 
 func reqLogger(w http.ResponseWriter, r *http.Request) {
 	slog.Info("request", slog.Any("request", r))
 }
 
-func createPrepareUploadHandler(sman *SessionManager) http.Handler {
+func createPrepareUploadHandler(sman *sessions.SessionManager) http.Handler {
 	logga := slog.Default().With(slog.String("handler", "prepare upload"))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 204 Finished, no file transfer needed
@@ -103,7 +104,7 @@ func SessionReader(w http.ResponseWriter, r *http.Request) {
 	// Localsend Phone Client: type 'String' is not a subtype of type 'Map<String, dynamic>'
 }
 
-func createUploadHandler(sman *SessionManager) http.Handler {
+func createUploadHandler(sman *sessions.SessionManager) http.Handler {
 	logga := slog.Default().With(slog.String("handler", "upload"))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 400 missing parameters
@@ -178,7 +179,7 @@ func createUploadHandler(sman *SessionManager) http.Handler {
 	})
 }
 
-func createCancelHandler(sman *SessionManager) http.Handler {
+func createCancelHandler(sman *sessions.SessionManager) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
 		if err != nil {
@@ -249,7 +250,7 @@ func createRegisterHandler(localNode *data.PeerInfo, peers data.PeerTracker) htt
 	})
 }
 
-func StartServer(ctx context.Context, localNode *data.PeerInfo, peers data.PeerTracker, sessionManager *SessionManager, tlsInfo *data.TLSPaths, downloadBase string) {
+func StartServer(ctx context.Context, localNode *data.PeerInfo, peers data.PeerTracker, sessionManager *sessions.SessionManager, tlsInfo *data.TLSPaths, downloadBase string) {
 
 	if peers == nil {
 		slog.Error("failed to setup server", slog.String("reason", "peertracker is nil"))

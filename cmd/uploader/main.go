@@ -7,6 +7,7 @@ import (
 	"github.com/atomic-7/gocalsend/internal/discovery"
 	"github.com/atomic-7/gocalsend/internal/encryption"
 	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/sessions"
 	"github.com/atomic-7/gocalsend/internal/uploader"
 	"log/slog"
 	"net"
@@ -92,12 +93,12 @@ func main() {
 	if err != nil {
 		slog.Error("could not find user home directory", slog.Any("error", err))
 	}
-	hui := server.HeadlessUI{}
-	sessionManager := server.NewSessionManager(outFolder, &hui)
+	hui := sessions.HeadlessUI{}
+	sessionManager := sessions.NewSessionManager(outFolder, &hui)
 	go server.StartServer(ctx, &node, peers, sessionManager, tlsInfo, outFolder)
 	go discovery.MonitorMulticast(ctx, multicastAddr, &node, peers, registratinator)
 
-	uplman := server.NewSessionManager(outFolder, &hui)
+	uplman := sessions.NewSessionManager(outFolder, &hui)
 	upl := uploader.CreateUploader(&node, uplman)
 
 	time.Sleep(5000)

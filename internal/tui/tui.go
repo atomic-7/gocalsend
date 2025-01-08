@@ -8,7 +8,7 @@ import (
 
 	"github.com/atomic-7/gocalsend/internal/config"
 	"github.com/atomic-7/gocalsend/internal/data"
-	"github.com/atomic-7/gocalsend/internal/server"
+	sessionmanager "github.com/atomic-7/gocalsend/internal/sessions"
 	"github.com/atomic-7/gocalsend/internal/tui/filepicker"
 	"github.com/atomic-7/gocalsend/internal/tui/hooks"
 	"github.com/atomic-7/gocalsend/internal/tui/peers"
@@ -30,7 +30,7 @@ type Model struct {
 	Context      context.Context
 }
 
-type AddSessionManager *server.SessionManager
+type AddSessionManager *sessionmanager.SessionManager
 
 const (
 	peerScreen = iota
@@ -51,7 +51,7 @@ func NewModel(node *data.PeerInfo, appconfig *config.Config) Model {
 	}
 }
 
-func (m *Model) SetupSessionManagers(dlman *server.SessionManager, uplman *server.SessionManager) {
+func (m *Model) SetupSessionManagers(dlman *sessionmanager.SessionManager, uplman *sessionmanager.SessionManager) {
 	m.sessionModel = sessions.NewSessionHandler(dlman)
 	m.transfers = transfers.New(dlman, uplman)
 }

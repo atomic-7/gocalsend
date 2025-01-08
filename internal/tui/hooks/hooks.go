@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/atomic-7/gocalsend/internal/data"
-	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/sessions"
 	"github.com/atomic-7/gocalsend/internal/tui/peers"
 )
 
@@ -27,11 +27,11 @@ type SessionFinished bool
 type SessionCancelled bool
 type ResponseChannel = chan bool
 type SessionOffer struct {
-	Sess *server.Session
+	Sess *sessions.Session
 	Res  ResponseChannel
 }
 
-func (h *UIHooks) OfferSession(sess *server.Session, res ResponseChannel) {
+func (h *UIHooks) OfferSession(sess *sessions.Session, res ResponseChannel) {
 	h.program.Send(&SessionOffer{Sess: sess, Res: res})
 }
 

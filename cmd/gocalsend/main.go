@@ -16,6 +16,7 @@ import (
 	"github.com/atomic-7/gocalsend/internal/discovery"
 	"github.com/atomic-7/gocalsend/internal/encryption"
 	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/sessions"
 	"github.com/atomic-7/gocalsend/internal/uploader"
 	"github.com/charmbracelet/log"
 )
@@ -159,8 +160,8 @@ func main() {
 	pm["self"] = node
 	peers.ReleaseMap()
 
-	hui := server.HeadlessUI{}
-	sessionManager := server.NewSessionManager(appConf.DownloadFolder, &hui)
+	hui := sessions.HeadlessUI{}
+	sessionManager := sessions.NewSessionManager(appConf.DownloadFolder, &hui)
 	registratinator := discovery.NewRegistratinator(node)
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -211,7 +212,7 @@ func main() {
 		}
 		peers.ReleaseMap()
 		slog.Debug("Peer", slog.Any("info", target))
-		uplman := server.NewSessionManager(appConf.DownloadFolder, &hui)
+		uplman := sessions.NewSessionManager(appConf.DownloadFolder, &hui)
 		upl := uploader.CreateUploader(node, uplman)
 		upl.UploadFiles(target, flag.Args())
 	case "rcv", "rec", "recv", "receive":

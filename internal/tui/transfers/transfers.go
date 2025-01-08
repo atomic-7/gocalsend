@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/sessions"
 	"github.com/atomic-7/gocalsend/internal/tui/hooks"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -13,13 +13,13 @@ import (
 )
 
 type Model struct {
-	incoming *server.SessionManager
-	outbound *server.SessionManager
+	incoming *sessions.SessionManager
+	outbound *sessions.SessionManager
 	help     help.Model
 	KeyMap   KeyMap
 }
 
-func New(dlman *server.SessionManager, uplman *server.SessionManager) Model {
+func New(dlman *sessions.SessionManager, uplman *sessions.SessionManager) Model {
 	return Model{
 		incoming: dlman,
 		outbound: uplman,

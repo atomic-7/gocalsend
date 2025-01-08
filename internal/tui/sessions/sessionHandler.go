@@ -9,18 +9,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/atomic-7/gocalsend/internal/tui/hooks"
-	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/sessions"
 )
 
 type Model struct {
 		cursor int
 		KeyMap KeyMap
 		help help.Model
-		SessionManager *server.SessionManager
+		SessionManager *sessions.SessionManager
 		sessionOffers  []*hooks.SessionOffer
 }
 
-func NewSessionHandler(sessionManager *server.SessionManager) Model {
+func NewSessionHandler(sessionManager *sessions.SessionManager) Model {
 	return Model{
 		cursor: 0,
 		KeyMap: DefaultKeyMap(),

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/atomic-7/gocalsend/internal/data"
-	"github.com/atomic-7/gocalsend/internal/server"
+	"github.com/atomic-7/gocalsend/internal/sessions"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,11 +20,11 @@ type Uploader struct {
 	node      *data.PeerInfo
 	client    *http.Client
 	tlsclient *http.Client
-	SessMan   *server.SessionManager
+	SessMan   *sessions.SessionManager
 }
 
 // node is the peerinfo of the local node
-func CreateUploader(node *data.PeerInfo, sman *server.SessionManager) *Uploader {
+func CreateUploader(node *data.PeerInfo, sman *sessions.SessionManager) *Uploader {
 	slog.Debug("Creating client")
 
 	// TODO: Look into cloning the default transport
