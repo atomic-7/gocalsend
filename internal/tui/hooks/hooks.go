@@ -64,7 +64,7 @@ type PeerMap struct {
 }
 
 func (pm *PeerMap) Add(peer *data.PeerInfo) bool {
-	add := pm.Add(peer)
+	add := pm.peers.Add(peer)
 	if add {
 		pm.program.Send(peers.AddPeerMsg(peer))
 	}
@@ -72,7 +72,7 @@ func (pm *PeerMap) Add(peer *data.PeerInfo) bool {
 
 }
 func (pm *PeerMap) Del(peer *data.PeerInfo) {
-	if pm.Has(peer.Fingerprint) {
+	if pm.peers.Has(peer.Fingerprint) {
 		pm.program.Send(peers.DelPeerMsg(peer.Fingerprint))
 	}
 	pm.peers.Del(peer)
