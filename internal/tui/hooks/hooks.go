@@ -2,7 +2,6 @@ package hooks
 
 import (
 	"log/slog"
-	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -54,41 +53,33 @@ func (h *UIHooks) SessionCancelled() {
 
 func NewPeerMap(prog *tea.Program) *PeerMap {
 	return &PeerMap{
-		peers:   make(map[string]*data.PeerInfo),
+		peers:   *data.NewPeerMap(),
 		program: prog,
 	}
 }
 
 type PeerMap struct {
-	peers   map[string]*data.PeerInfo
-	lock    sync.Mutex
+	peers   data.PeerMap
 	program *tea.Program
 }
 
 func (pm *PeerMap) Add(peer *data.PeerInfo) bool {
-	slog.Debug("adding to peertracker", slog.String("peer", peer.Alias))
-	pm.lock.Lock()
-	_, present := pm.peers[peer.Fingerprint]
-	pm.peers[peer.Fingerprint] = peer
-	pm.lock.Unlock()
-	if !present {
+	add := pm.Add(peer)
+	if add {
 		pm.program.Send(peers.AddPeerMsg(peer))
 	}
-	return !present
+	return add
+
 }
 func (pm *PeerMap) Del(peer *data.PeerInfo) {
-
-	_, present := pm.peers[peer.Fingerprint]
-	if !present {
-		pm.program.Send(peers.AddPeerMsg(peer))
+	if pm.Has(peer.Fingerprint) {
+		pm.program.Send(peers.DelPeerMsg(peer.Fingerprint))
 	}
-	pm.lock.Lock()
-	delete(pm.peers, peer.Fingerprint)
-	pm.lock.Unlock()
+	pm.peers.Del(peer)
 }
 func (pm *PeerMap) Has(fingerprint string) bool {
-	pm.lock.Lock()
-	_, ok := pm.peers[fingerprint]
-	pm.lock.Unlock()
-	return ok
+	return pm.peers.Has(fingerprint)
+}
+func (pm *PeerMap) Get(fingerprint string) (*data.PeerInfo, bool) {
+	return pm.peers.Get(fingerprint)
 }

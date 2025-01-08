@@ -97,6 +97,7 @@ type AnnounceInfo struct {
 
 type PeerTracker interface {
 	Has(string) bool
+	Get(string) (*PeerInfo, bool)
 	Add(*PeerInfo) bool
 	Del(*PeerInfo)
 }
@@ -131,6 +132,12 @@ func (pm *PeerMap) Has(fingerprint string) bool {
 	_, ok := pm.peers[fingerprint]
 	pm.lock.Unlock()
 	return ok
+}
+func (pm *PeerMap) Get(fingerprint string) (*PeerInfo, bool) {
+	pm.lock.Lock()
+	peer, ok := pm.peers[fingerprint]
+	pm.lock.Unlock()
+	return peer, ok
 }
 
 func (pm *PeerMap) GetMap() *map[string]*PeerInfo {
