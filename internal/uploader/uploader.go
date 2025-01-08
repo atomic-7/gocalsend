@@ -160,8 +160,9 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 		slog.Error("failed to unmarshal session info for prep-upload", slog.Any("error", err))
 		return "", err
 	}
-	slog.Info("received session", slog.Any("session", sessInfo))
-	sessID := cl.SessMan.CreateUpload(&sessInfo, idmap)
+	slog.Info("received session", slog.String("peer", peer.Alias), slog.Any("session", sessInfo))
+
+	sessID := cl.SessMan.CreateUpload(peer, &sessInfo, idmap)
 
 	return sessID, nil
 }

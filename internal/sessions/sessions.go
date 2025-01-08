@@ -30,6 +30,7 @@ type Session struct {
 	Files     map[string]*data.File //map between file ids and file structs
 	Remaining int
 	lock      sync.Mutex
+	Peer      *data.PeerInfo
 }
 
 type UIHooks interface {
@@ -57,7 +58,7 @@ func (sm *SessionManager) tokenize(sess *data.SessionInfo, file *data.File) stri
 }
 
 // asks the ui to accept the session and creates if it if the user accepts. returns nil if the session offer is rejected
-func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.SessionInfo {
+func (sm *SessionManager) CreateSession(peer *data.PeerInfo, files map[string]*data.File) *data.SessionInfo {
 	fileToToken := make(map[string]string, len(files))
 	idToFile := make(map[string]*data.File, len(files))
 	sm.Serial += 1
@@ -79,6 +80,7 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 		SessionID: sessID,
 		Files:     idToFile,
 		Remaining: len(idToFile),
+		Peer:      peer,
 	}
 
 	res := make(chan bool)
@@ -102,7 +104,7 @@ func (sm *SessionManager) CreateSession(files map[string]*data.File) *data.Sessi
 	}
 }
 
-func (sm *SessionManager) CreateUpload(sess *data.SessionInfo, files map[string]*data.File) string {
+func (sm *SessionManager) CreateUpload(peer *data.PeerInfo, sess *data.SessionInfo, files map[string]*data.File) string {
 	// sm.Serial += 1
 	for fileID, file := range files {
 		file.Token = sess.Files[fileID]
@@ -116,6 +118,7 @@ func (sm *SessionManager) CreateUpload(sess *data.SessionInfo, files map[string]
 		SessionID: sess.SessionID,
 		Files:     files,
 		Remaining: len(files),
+		Peer:      peer,
 	}
 	sm.upLock.Unlock()
 	sm.ui.SessionCreated()

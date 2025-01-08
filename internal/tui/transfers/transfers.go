@@ -14,8 +14,6 @@ import (
 
 type Model struct {
 	sman *sessions.SessionManager
-	incoming *sessions.SessionManager
-	outbound *sessions.SessionManager
 	help     help.Model
 	KeyMap   KeyMap
 }
@@ -52,18 +50,17 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m Model) View() string {
 	var b strings.Builder
 	b.WriteString("Transfers\n\n")
-	// TODO: Track which clients belong to which sessions so it can be displayed
 	if len(m.sman.Downloads) != 0 {
 		b.WriteString("Downloads\n")
-		for k, s := range m.sman.Downloads {
-			fmt.Fprintf(&b, " %s | %s (%d / %d)\n", k, s.SessionID, s.Remaining, len(s.Files))
+		for _, s := range m.sman.Downloads {
+			fmt.Fprintf(&b, " %s | %s (%d / %d)\n", s.Peer.Alias, s.SessionID, s.Remaining, len(s.Files))
 		}
 		b.WriteString("\n\n")
 	}
 	if len(m.sman.Uploads) != 0 {
 		b.WriteString("Uploads\n")
-		for k, s := range m.sman.Uploads {
-			fmt.Fprintf(&b, " %s | %s (%d / %d)\n", k, s.SessionID, s.Remaining, len(s.Files))
+		for _, s := range m.sman.Uploads {
+			fmt.Fprintf(&b, " %s | %s (%d / %d)\n", s.Peer.Alias, s.SessionID, s.Remaining, len(s.Files))
 		}
 		b.WriteString("\n\n")
 	}
