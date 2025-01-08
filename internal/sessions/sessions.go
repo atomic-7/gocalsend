@@ -162,7 +162,9 @@ func (sm *SessionManager) FinishSession(sessionId string) {
 type HeadlessUI struct{}
 
 func (hui *HeadlessUI) OfferSession(sess *Session, res chan bool) {
-	res <- true
+	go func() {
+		res <- true
+	}()
 }
 
 func (hui *HeadlessUI) FileFinished() {
