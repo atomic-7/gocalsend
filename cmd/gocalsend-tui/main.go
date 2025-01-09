@@ -94,12 +94,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	model := tui.NewModel(node, appConf)
-	model.Context = ctx
+	model := tui.NewModel(ctx, node, appConf)
 	p := tea.NewProgram(&model)
 	peers := hooks.NewPeerMap(p)
 	uihooks := hooks.NewHooks(p)
-	sessionManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
+	sessionManager := sessions.NewSessionManager(ctx, appConf.DownloadFolder, uihooks)
 	model.Uploader = uploader.CreateUploader(node, sessionManager)
 	// dlManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
 	model.SetupSessionManagers(sessionManager)

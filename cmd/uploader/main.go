@@ -94,7 +94,7 @@ func main() {
 		slog.Error("could not find user home directory", slog.Any("error", err))
 	}
 	hui := sessions.HeadlessUI{}
-	sessionManager := sessions.NewSessionManager(outFolder, &hui)
+	sessionManager := sessions.NewSessionManager(ctx, outFolder, &hui)
 	go server.StartServer(ctx, &node, peers, sessionManager, tlsInfo, outFolder)
 	go discovery.MonitorMulticast(ctx, multicastAddr, &node, peers, registratinator)
 

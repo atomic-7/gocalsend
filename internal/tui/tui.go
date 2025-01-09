@@ -40,7 +40,7 @@ const (
 	transfersScreen
 )
 
-func NewModel(node *data.PeerInfo, appconfig *config.Config) Model {
+func NewModel(ctx context.Context, node *data.PeerInfo, appconfig *config.Config) Model {
 	return Model{
 		screen:     fileSelectScreen,
 		prevScreen: peerScreen,
@@ -48,6 +48,7 @@ func NewModel(node *data.PeerInfo, appconfig *config.Config) Model {
 		filepicker: filepicker.New(),
 		config:     appconfig,
 		node:       node,
+		Context: ctx,
 	}
 }
 

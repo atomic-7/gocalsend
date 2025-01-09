@@ -120,7 +120,11 @@ func createUploadHandler(sman *sessions.SessionManager) http.Handler {
 		// TODO: Use http.Error instead of write header for better feedback for requests
 		if !r.Form.Has("sessionId") || !r.Form.Has("fileId") || !r.Form.Has("token") {
 			logga.Error("request with invalid url parameters", slog.String("url", r.URL.String()))
-			slog.Debug("expected parameters", slog.String("sessionId", r.Form.Get("sessionId")), slog.String("fileId", r.Form.Get("fileId")), slog.String("tokekn", r.Form.Get("token")))
+			slog.Debug("expected parameters",
+				slog.String("sessionId", r.Form.Get("sessionId")),
+				slog.String("fileId", r.Form.Get("fileId")),
+				slog.String("tokekn", r.Form.Get("token")),
+			)
 			w.WriteHeader(400)
 			return
 		}
@@ -165,12 +169,14 @@ func createUploadHandler(sman *sessions.SessionManager) http.Handler {
 			w.WriteHeader(500)
 			return
 		}
+
 		_, err = osFile.ReadFrom(r.Body) // could probably also use io.Copy
 		if err != nil {
 			logga.Error("failed to write to file", slog.String("file", file.FileName), slog.Any("error", err))
 			w.WriteHeader(500)
 			return
 		}
+
 		// Not a deferred close to be able to catch errors that might happen when closing a file after writing
 		err = osFile.Close()
 		if err != nil {

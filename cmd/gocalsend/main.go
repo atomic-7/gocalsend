@@ -160,12 +160,13 @@ func main() {
 	pm["self"] = node
 	peers.ReleaseMap()
 
-	hui := sessions.HeadlessUI{}
-	sessionManager := sessions.NewSessionManager(appConf.DownloadFolder, &hui)
-	registratinator := discovery.NewRegistratinator(node)
-	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	hui := sessions.HeadlessUI{}
+	sessionManager := sessions.NewSessionManager(ctx, appConf.DownloadFolder, &hui)
+	registratinator := discovery.NewRegistratinator(node)
+	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 	runAnnouncement := func() {
 		err := discovery.AnnounceViaMulticast(node, multicastAddr)
 		if err != nil {

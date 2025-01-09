@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -19,9 +20,10 @@ type SessionManager struct {
 	// this makes rendering uploads and downloads seperately easier in the ui
 	Downloads map[string]*Session
 	Uploads   map[string]*Session
+	ui        UIHooks
 	dlLock    sync.Mutex
 	upLock    sync.Mutex
-	ui        UIHooks
+	ctxGlobal context.Context
 }
 
 // maybe track which peer this session belongs to. Needed to check for 403
@@ -29,8 +31,13 @@ type Session struct {
 	SessionID string
 	Files     map[string]*data.File //map between file ids and file structs
 	Remaining int
-	lock      sync.Mutex
 	Peer      *data.PeerInfo
+	lock      sync.Mutex
+	ctx       context.Context
+	cancel    context.CancelFunc
+}
+func (s *Session) GetCtx() context.Context {
+	return s.ctx	
 }
 
 type UIHooks interface {
@@ -42,13 +49,14 @@ type UIHooks interface {
 	SessionCancelled()
 }
 
-func NewSessionManager(basePath string, uihooks UIHooks) *SessionManager {
+func NewSessionManager(ctx context.Context, basePath string, uihooks UIHooks) *SessionManager {
 	return &SessionManager{
 		BasePath:  basePath,
 		Serial:    1,
 		Downloads: make(map[string]*Session),
 		Uploads:   make(map[string]*Session),
 		ui:        uihooks,
+		ctxGlobal: ctx,
 	}
 }
 
@@ -75,15 +83,18 @@ func (sm *SessionManager) CreateSession(peer *data.PeerInfo, files map[string]*d
 		fileToToken[fileID] = token
 		idToFile[fileID] = file
 	}
-
+	ctxChild, cancel := context.WithCancel(sm.ctxGlobal)
 	sessionCandidate := &Session{
 		SessionID: sessID,
 		Files:     idToFile,
 		Remaining: len(idToFile),
 		Peer:      peer,
+		ctx:       ctxChild,
+		cancel:    cancel,
 	}
 
 	res := make(chan bool)
+	// TODO: make offer sessions take a timeout context
 	sm.ui.OfferSession(sessionCandidate, res)
 	timer := time.NewTimer(1 * time.Minute)
 	answer := false
@@ -110,6 +121,7 @@ func (sm *SessionManager) CreateUpload(peer *data.PeerInfo, sess *data.SessionIn
 		file.Token = sess.Files[fileID]
 	}
 	sm.upLock.Lock()
+	ctxChild, cancel := context.WithCancel(sm.ctxGlobal)
 	// sessID := fmt.Sprintf("gclsnd-client-%d", sm.Serial)
 	// using the session id from the peer could lead to collisions or security risks
 	// this might get acceptable when combined with a check which peer a session belongs to
@@ -119,6 +131,8 @@ func (sm *SessionManager) CreateUpload(peer *data.PeerInfo, sess *data.SessionIn
 		Files:     files,
 		Remaining: len(files),
 		Peer:      peer,
+		ctx:       ctxChild,
+		cancel:    cancel,
 	}
 	sm.upLock.Unlock()
 	sm.ui.SessionCreated()
@@ -128,7 +142,8 @@ func (sm *SessionManager) CreateUpload(peer *data.PeerInfo, sess *data.SessionIn
 func (sm *SessionManager) CancelSession(sessionID string) {
 	// TODO: test cancel route with invalid sessionID
 	// TODO: Delete associated files if a session is cancelled before it is completed?
-	if _, ok := sm.Downloads[sessionID]; ok {
+	if sess, ok := sm.Downloads[sessionID]; ok {
+		sess.cancel()
 		// TODO: Provide info to display about cancelled session
 		sm.ui.SessionCancelled()
 		sm.dlLock.Lock()
@@ -137,7 +152,8 @@ func (sm *SessionManager) CancelSession(sessionID string) {
 		slog.Debug("removed download", slog.String("id", sessionID))
 		return
 	}
-	if _, ok := sm.Uploads[sessionID]; ok {
+	if sess, ok := sm.Uploads[sessionID]; ok {
+		sess.cancel()
 		sm.ui.SessionCancelled()
 		sm.upLock.Lock()
 		delete(sm.Uploads, sessionID)
@@ -200,10 +216,13 @@ func (sm *SessionManager) FinishSession(sessionID string) {
 		}
 		set = &sm.Uploads
 	}
+
+	sess := (*set)[sessionID]
+	sess.cancel = nil
+	sess.ctx = nil
+	delete(*set, sessionID)
 	sm.upLock.Unlock()
 	sm.dlLock.Unlock()
-
-	delete(*set, sessionID)
 	sm.ui.SessionFinished()
 	slog.Info("Finished session", slog.String("sessionId", sessionID))
 }
