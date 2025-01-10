@@ -13,17 +13,28 @@ import (
 )
 
 type Model struct {
-	sman *sessions.SessionManager
-	help     help.Model
-	KeyMap   KeyMap
+	sman   *sessions.SessionManager
+	help   help.Model
+	KeyMap KeyMap
 }
 
 func New(sman *sessions.SessionManager) Model {
 	return Model{
-		sman: sman,
-		help:     help.New(),
-		KeyMap:   DefaultKeyMap(),
+		sman:   sman,
+		help:   help.New(),
+		KeyMap: DefaultKeyMap(),
 	}
+}
+
+func (m *Model) cancelAllSessions() tea.Msg {
+	for id, _ := range m.sman.Downloads {
+		m.sman.CancelSession(id)
+	}
+	for id, _ := range m.sman.Uploads {
+		m.sman.CancelSession(id)
+	}
+	slog.Debug("cancelled all sessions", slog.String("src", "transfers"))
+	return nil
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
@@ -31,8 +42,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.KeyMap.Quit):
-			// TODO: cancel all ongoing sessions
-			return m, tea.Quit
+			return m, tea.Sequence(m.cancelAllSessions, tea.Quit)
+		case key.Matches(msg, m.KeyMap.Cancel):
+			return m, m.cancelAllSessions
 		}
 	case hooks.FileFinished:
 		slog.Debug("received file finished msg", slog.String("src", "transfers"))
@@ -74,20 +86,22 @@ func (m Model) Init() tea.Cmd {
 
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
-		Quit: key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+q"), key.WithHelp("q", "quit")),
+		Quit:   key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+q"), key.WithHelp("q", "quit")),
+		Cancel: key.NewBinding(key.WithKeys("c", "esc"), key.WithHelp("esc", "cancel")),
 	}
 }
 
 type KeyMap struct {
-	Quit key.Binding
+	Quit   key.Binding
+	Cancel key.Binding
 }
 
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Quit}
+	return []key.Binding{k.Quit, k.Cancel}
 }
 
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Quit},
+		{k.Quit, k.Cancel},
 	}
 }
