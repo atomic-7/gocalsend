@@ -1,7 +1,6 @@
 package hooks
 
 import (
-	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -43,7 +42,6 @@ func (h *UIHooks) SessionCreated() {
 }
 
 func (h *UIHooks) SessionFinished() {
-	slog.Debug("sending session finished msg to tui")
 	h.program.Send(SessionFinished(true))
 }
 
