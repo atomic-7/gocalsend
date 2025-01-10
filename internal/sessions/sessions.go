@@ -144,20 +144,24 @@ func (sm *SessionManager) CancelSession(sessionID string) {
 	// TODO: Delete associated files if a session is cancelled before it is completed?
 	if sess, ok := sm.Downloads[sessionID]; ok {
 		sess.cancel()
+		sess.cancel = nil
+		sess.ctx = nil
 		// TODO: Provide info to display about cancelled session
-		sm.ui.SessionCancelled()
 		sm.dlLock.Lock()
 		delete(sm.Downloads, sessionID)
 		sm.dlLock.Unlock()
+		sm.ui.SessionCancelled()
 		slog.Debug("removed download", slog.String("id", sessionID))
 		return
 	}
 	if sess, ok := sm.Uploads[sessionID]; ok {
 		sess.cancel()
-		sm.ui.SessionCancelled()
+		sess.cancel = nil
+		sess.ctx = nil
 		sm.upLock.Lock()
 		delete(sm.Uploads, sessionID)
 		sm.upLock.Unlock()
+		sm.ui.SessionCancelled()
 		slog.Debug("removed upload", slog.String("id", sessionID))
 	}
 }
