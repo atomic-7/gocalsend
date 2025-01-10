@@ -2,6 +2,7 @@ package uploader
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -62,14 +63,27 @@ func (cl *Uploader) UploadFiles(peer *data.PeerInfo, files []string) error {
 	}
 
 	sess := cl.SessMan.Uploads[sessionID]
+	ctx := sess.GetCtx()
 	for _, file := range sess.Files {
-		slog.Info("uploading file", slog.String("file", file.FileName))
-		err = cl.singleUpload(peer, sess.SessionID, file)
-		if err != nil {
-			slog.Error("failed to upload", slog.String("file", file.FileName), slog.Any("error", err))
-			cl.SessMan.CancelSession(sessionID)
+		select {
+		case <-ctx.Done():
+			// TODO: clean up downloaded files?
+			break
+		default:
+			slog.Info("uploading file", slog.String("file", file.FileName))
+			err = cl.singleUpload(ctx, peer, sess.SessionID, file)
+			if err != nil {
+				slog.Error("failed to upload", slog.String("file", file.FileName), slog.Any("error", err))
+				if !errors.Is(err, context.Canceled) {
+					slog.Debug("cancelling session because the error was not a context cancel")
+					cl.SessMan.CancelSession(sessionID)
+				}
+				return err
+			}
+			cl.SessMan.FinishFile(sessionID, file.ID)
+
 		}
-		cl.SessMan.FinishFile(sessionID, file.ID)
+
 	}
 	return nil
 }
@@ -167,7 +181,7 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 	return sessID, nil
 }
 
-func (cl *Uploader) singleUpload(peer *data.PeerInfo, sessID string, file *data.File) error {
+func (cl *Uploader) singleUpload(ctx context.Context, peer *data.PeerInfo, sessID string, file *data.File) error {
 
 	base := url.URL{}
 	base.Scheme = "http"
@@ -192,9 +206,16 @@ func (cl *Uploader) singleUpload(peer *data.PeerInfo, sessID string, file *data.
 		base.Scheme = "https"
 		client = cl.tlsclient
 	}
-	resp, err := client.Post(base.String(), "Content-Type:application/octet-stream", fh)
+	req, err := http.NewRequestWithContext(ctx, "POST", base.String(), fh)
+	req.Header.Set("Content-Type", "application/octet-stream")
 	if err != nil {
-		slog.Error("failed to send the file to the server", slog.Any("error", err))
+		slog.Error("failed to create request with context", slog.Any("error", err))
+		return err
+	}
+	resp, err := client.Do(req)
+
+	// resp, err := client.Post(base.String(), "Content-Type:application/octet-stream", fh)
+	if err != nil {
 		return err
 	}
 
