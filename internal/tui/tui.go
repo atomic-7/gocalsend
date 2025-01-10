@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -86,10 +87,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// send file, display ongoing transfers
 			m.screen = transfersScreen
 			cmd = tea.Batch(cmd, func() tea.Msg {
-				m.Uploader.UploadFiles(m.peerModel.GetPeer(), m.filepicker.Selected)
+				err := m.Uploader.UploadFiles(m.peerModel.GetPeer(), m.filepicker.Selected)
+				if err != nil {
+					if errors.Is(err, context.Canceled) {
+						slog.Debug("upload cancelled" )
+					} else {
+						slog.Error("upload failed", slog.Any("error", err))
+					}
+					return nil
+				}
 				slog.Debug("uploader finished")
 				return nil
 			}, func() tea.Msg {
+				// TODO: see if this is still needed
 				return hooks.SessionCreated(true)
 			})
 		}
