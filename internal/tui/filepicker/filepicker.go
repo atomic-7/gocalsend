@@ -15,7 +15,7 @@ import (
 func New() Model {
 	fp := filepicker.New()
 	home, err := os.UserHomeDir()
-	fp.DirAllowed = true
+	fp.DirAllowed = false	// not implemented yet
 	fp.AutoHeight = true
 	fp.KeyMap.Open = key.NewBinding(key.WithKeys("l", "right", " "), key.WithHelp("l", "open"))
 	fp.KeyMap.Select = key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "select"))
@@ -52,7 +52,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		msg.Height -= ownHeight
 		msg.Height -= len(m.Selected)
 		// ignore the cmd because the filepicker responds with nil cmd for resize msgs
 		m.fp, _ = m.fp.Update(msg)
@@ -75,7 +74,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.Selected = append(m.Selected, path)
 		resizeMsg := tea.WindowSizeMsg{
 			Width:  m.width,
-			Height: m.height - ownHeight - len(m.Selected),
+			Height: m.height - len(m.Selected),
 		}
 		m.fp, _ = m.fp.Update(resizeMsg)
 	}
@@ -86,8 +85,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, cmd
 }
 
-const ownHeight = 5
-
 func (m Model) View() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "File Selection > %s\n", m.fp.CurrentDirectory)
@@ -95,12 +92,13 @@ func (m Model) View() string {
 
 	// TODO: make the list of selected files a scrollable list where files can be deselected
 	if len(m.Selected) != 0 {
-		b.WriteString("\n\n")
+		// b.WriteString("\n\n\n\n")
 		for _, path := range m.Selected {
 			fmt.Fprintf(&b, "-> %s\n", path)
 		}
 	}
 
+	// when a file is selected for the first time the keymap jumps two lines up
 	b.WriteString("\n")
 	b.WriteString(m.help.View(m.KeyMap))
 	b.WriteString("\n")
