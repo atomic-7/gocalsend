@@ -12,6 +12,7 @@
 	- [x] generate a certificate -> https://eli.thegreenplace.net/2021/go-https-servers-with-tls/
 	- [x] encrypt a file using the certificate
 	- [] Try to hook into the tls handshake and see if the peer cert can be added to the trusted pool if the sha256 of the cert matches the fingerprint
+	- [] track the localsend mtls state, it is not supported yet in the official client so no need to worry yet
 - [] Protocol parsing
     - [] support version 1 (not a priority)
     - [x] support version 2 
@@ -45,6 +46,12 @@
 - [] Reverse File transfer for when localsend is not available on the client
 - [] pin support
 - [] TUI with the charm libraries
+    - [] multi file select
+	- [] allow deselecting files in the selected file list
+	- [] make selecting folders configurable?
+    - [] screen to select peers
+	- [] refresh available peers on peer screen
+    - [] grab focus for session offers
 - [] Progress display
     - [] provide hooks to the upload handler so it can report the progress to the ui?
 
@@ -62,12 +69,13 @@
     - [] Figure out unit testing for http endpoints
 
 - [] Config
-    - [] Choose a suitable config format
-    - [] use config to allow user to specify their own tls certs
+    - [x] Choose a suitable config format
+    - [x] use config to allow user to specify their own tls certs
 
 - [] Misc
     - [] generate a random fingerprint
     - [] translate ~ to the correct user home for all paths
+    - [] random name from hostname/user/word combo
     
 
 ## CLI (shortcut to gclsnd?)
