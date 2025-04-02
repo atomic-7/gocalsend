@@ -35,6 +35,8 @@ func New() Model {
 type Model struct {
 	Done     bool
 	Selected []string
+	width    int
+	height   int
 	fp       filepicker.Model
 	KeyMap   KeyMap
 	help     help.Model
@@ -47,6 +49,13 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		msg.Height -= ownHeight
+		msg.Height -= len(m.Selected)
+		// ignore the cmd because the filepicker responds with nil cmd for resize msgs
+		m.fp, _ = m.fp.Update(msg)
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.KeyMap.Confirm):
@@ -64,6 +73,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	if didSelect, path := m.fp.DidSelectFile(msg); didSelect {
 		slog.Debug("file selected", slog.String("path", path))
 		m.Selected = append(m.Selected, path)
+		resizeMsg := tea.WindowSizeMsg{
+			Width:  m.width,
+			Height: m.height - ownHeight - len(m.Selected),
+		}
+		m.fp, _ = m.fp.Update(resizeMsg)
 	}
 	// check if a file was selected that the filters disable
 	// if didSelect, path := m.fp.DidSelectDisabledFile(msg); didSelect {
@@ -72,11 +86,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, cmd
 }
 
+const ownHeight = 5
+
 func (m Model) View() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "File Selection > %s\n", m.fp.CurrentDirectory)
 	b.WriteString(m.fp.View())
 
+	// TODO: make the list of selected files a scrollable list where files can be deselected
 	if len(m.Selected) != 0 {
 		b.WriteString("\n\n")
 		for _, path := range m.Selected {

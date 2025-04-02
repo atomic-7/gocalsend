@@ -9,7 +9,7 @@ import (
 	"github.com/atomic-7/gocalsend/internal/tui/peers"
 )
 
-// this could be rewritten to where the model is implementing the PeerMap interface
+// TODO: rewrite to pub sub
 type UIHooks struct {
 	program *tea.Program
 }
