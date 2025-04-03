@@ -79,13 +79,28 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// msg.Height -= len(m.Selected)
 		msg.Height -= m.fileList.Height()
 		// ignore the cmd because the filepicker responds with nil cmd for resize msgs
 		m.fileList.SetWidth(msg.Width)
 		m.fp, _ = m.fp.Update(msg)
 		return m, nil
 	case tea.KeyMsg:
+		switch m.focus {
+		case FILEPICKER:
+			switch {
+			case key.Matches(msg, m.KeyMap.Confirm):
+				if len(m.Selected) != 0 {
+					m.Done = true
+					slog.Debug("confirm key caught", slog.Int("files", len(m.Selected)), slog.String("src", "filepicker"))
+				}
+			}
+		case SELECTEDFILES:
+			switch {
+			case key.Matches(msg, m.KeyMap.Confirm):
+				slog.Debug("deselecting", slog.String("file", m.fileList.SelectedItem().FilterValue()))
+				m.fileList.RemoveItem(m.fileList.Index())
+			}
+		}
 		switch {
 		case key.Matches(msg, m.KeyMap.FocusFilepicker):
 			m.focus = screen(FILEPICKER)
@@ -103,26 +118,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch m.focus {
 	case FILEPICKER:
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
-			switch {
-			case key.Matches(msg, m.KeyMap.Confirm):
-				if len(m.Selected) != 0 {
-					m.Done = true
-					slog.Debug("confirm key caught", slog.Int("files", len(m.Selected)), slog.String("src", "filepicker"))
-				}
-			}
-		}
 		m.fp, cmd = m.fp.Update(msg)
 	case SELECTEDFILES:
-	switch msg := msg.(type) {
-		case tea.KeyMsg:
-			switch {
-			case key.Matches(msg, m.KeyMap.Confirm):
-				slog.Debug("deselecting", slog.String("file", m.fileList.SelectedItem().FilterValue()))
-				m.fileList.RemoveItem(m.fileList.Index())
-			}
-		}
 		m.fileList, cmd = m.fileList.Update(msg)
 	}
 
@@ -151,14 +148,6 @@ func (m Model) View() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "File Selection > %s\n", m.fp.CurrentDirectory)
 	b.WriteString(m.fp.View())
-
-	// TODO: make the list of selected files a scrollable list where files can be deselected
-	// if len(m.Selected) != 0 {
-	// 	// b.WriteString("\n\n\n\n")
-	// 	for _, path := range m.Selected {
-	// 		fmt.Fprintf(&b, "-> %s\n", path)
-	// 	}
-	// }
 	b.WriteString(m.fileList.View())
 
 	// TODO: figure out how to handle the help texts better
