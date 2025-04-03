@@ -81,6 +81,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case peerScreen:
 		m.peerModel, cmd = m.peerModel.Update(msg)
+    if m.peerModel.ShouldGoBack {
+      m.filepicker.Done = false
+      m.screen = fileSelectScreen
+      return m, nil
+    }
 		if m.peerModel.Done {
 			slog.Debug("peer selected", slog.String("peer", m.peerModel.GetPeer().Alias))
 			slog.Debug("uploading files", slog.String("file", m.filepicker.Selected[0]))

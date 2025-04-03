@@ -15,6 +15,7 @@ import (
 
 type Model struct {
 	Done   bool
+  ShouldGoBack bool
 	cursor int
 	// TODO: maybe consider just passing in the peermap
 	peers  []*data.PeerInfo
@@ -52,13 +53,16 @@ func DefaultKeyMap() KeyMap {
 		Up:      key.NewBinding(key.WithKeys("k", "up", "ctrl+p"), key.WithHelp("k", "up")),
 		Down:    key.NewBinding(key.WithKeys("j", "down", "ctrl+n"), key.WithHelp("j", "down")),
 		Confirm: key.NewBinding(key.WithKeys("space", "enter"), key.WithHelp("space", "confirm")),
+    Back:    key.NewBinding(key.WithKeys("backspace", "escape", "b", "f"), key.WithHelp("esc", "back")),
 		Quit:    key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+q"), key.WithHelp("q", "quit")),
 	}
 }
 
+// TODO: rename to conform to New() scheme
 func NewPSModel() Model {
 	return Model{
 		Done: false,
+    ShouldGoBack: false,
 		cursor: 0,
 		peers:  make([]*data.PeerInfo, 0, 10),
 		help:   help.New(),
@@ -91,6 +95,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			slog.Info("entry selected", slog.String("screen", "peerScreen"), slog.String("peer", m.peers[m.cursor].Alias))
 			m.Done = true
 			return m, nil
+    case key.Matches(msg, m.KeyMap.Back):
+      slog.Debug("going back to file select")
+      m.ShouldGoBack = true
+      return m, nil
 		case key.Matches(msg, m.KeyMap.Quit):
 			return m, tea.Quit
 		}
@@ -128,17 +136,18 @@ type KeyMap struct {
 	Up      key.Binding
 	Down    key.Binding
 	Confirm key.Binding
+  Back    key.Binding
 	Quit    key.Binding
 }
 
 // keybindinds to be shown in the mini help view
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Confirm, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.Confirm, k.Back, k.Quit}
 }
 
 // keybinds to be shown in the full help view
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Confirm, k.Quit},
+		{k.Up, k.Down, k.Confirm, k.Back, k.Quit},
 	}
 }

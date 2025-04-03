@@ -46,6 +46,7 @@
 - [] Reverse File transfer for when localsend is not available on the client
 - [] pin support
 - [] TUI with the charm libraries
+    - [] stack based scene manager to be able to go back easily? could be useful to return after incoming session requests
     - [] fancy lipgloss styles
     - [] add a back button so the user can correct selected files
     - [] multi file select
