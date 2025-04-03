@@ -112,6 +112,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case fileSelectScreen:
 		m.filepicker, cmd = m.filepicker.Update(msg)
 		if m.filepicker.Done {
+      m.peerModel.Files = &m.filepicker.Selected
 			m.screen = peerScreen
 		}
 	case transfersScreen:
