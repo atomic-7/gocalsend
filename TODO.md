@@ -46,10 +46,12 @@
 - [] Reverse File transfer for when localsend is not available on the client
 - [] pin support
 - [] TUI with the charm libraries
+    - [] add a back button so the user can correct selected files
     - [] multi file select
 	- [] allow deselecting files in the selected file list
 	- [] make selecting folders configurable?
     - [] screen to select peers
+	- [] display selected files
 	- [] refresh available peers on peer screen
     - [] grab focus for session offers
 - [] Progress display

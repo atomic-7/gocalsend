@@ -9,13 +9,14 @@ import (
 	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func New() Model {
 	fp := filepicker.New()
 	home, err := os.UserHomeDir()
-	fp.DirAllowed = false	// not implemented yet
+	fp.DirAllowed = false // not implemented yet
 	fp.AutoHeight = true
 	fp.KeyMap.Open = key.NewBinding(key.WithKeys("l", "right", " "), key.WithHelp("l", "open"))
 	fp.KeyMap.Select = key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "select"))
@@ -24,25 +25,51 @@ func New() Model {
 		slog.Debug("failed to get path to home dir", slog.Any("err", err))
 	}
 	fp.CurrentDirectory = home
+
+	fl := list.New(make([]list.Item, 0, 10), list.NewDefaultDelegate(), 5, 14)
+	fl.InfiniteScrolling = true
+	fl.SetShowHelp(false)
+	fl.SetShowStatusBar(false)
+	fl.Title = "Selected Files"
 	return Model{
-		Done:   false,
-		fp:     fp,
-		KeyMap: DefaultKeyMap(),
-		help:   help.New(),
+		Done:     false,
+		focus:    screen(FILEPICKER),
+		fp:       fp,
+		fileList: fl,
+		KeyMap:   DefaultKeyMap(),
+		help:     help.New(),
 	}
 }
+
+const (
+	FILEPICKER = iota
+	SELECTEDFILES
+)
+
+type screen = int
 
 type Model struct {
 	Done     bool
 	Selected []string
 	width    int
 	height   int
+	focus    screen
 	fp       filepicker.Model
+	fileList list.Model
 	KeyMap   KeyMap
 	help     help.Model
 }
 
+type selectedItem struct {
+	path string
+}
+
+func (i selectedItem) Title() string       { return i.path }
+func (i selectedItem) Description() string { return i.path }
+func (i selectedItem) FilterValue() string { return i.path }
+
 func (m Model) Init() tea.Cmd {
+	// fileList does not need to be initialized
 	return m.fp.Init()
 }
 
@@ -52,29 +79,64 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		msg.Height -= len(m.Selected)
+		// msg.Height -= len(m.Selected)
+		msg.Height -= m.fileList.Height()
 		// ignore the cmd because the filepicker responds with nil cmd for resize msgs
+		m.fileList.SetWidth(msg.Width)
 		m.fp, _ = m.fp.Update(msg)
+		return m, nil
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, m.KeyMap.Confirm):
-			if len(m.Selected) != 0 {
-				m.Done = true
-				slog.Debug("confirm key caught", slog.Int("files", len(m.Selected)), slog.String("src", "filepicker"))
-			}
+		case key.Matches(msg, m.KeyMap.FocusFilepicker):
+			m.focus = screen(FILEPICKER)
+			m.fileList.SetShowHelp(false)
+			return m, nil
+		case key.Matches(msg, m.KeyMap.FocusSelectedFiles):
+			m.focus = screen(SELECTEDFILES)
+			m.fileList.SetShowHelp(true)
+			return m, nil
 		case key.Matches(msg, m.KeyMap.Quit):
 			return m, tea.Quit
 		}
 	}
-	newfp, cmd := m.fp.Update(msg)
-	m.fp = newfp
+
+	var cmd tea.Cmd
+	switch m.focus {
+	case FILEPICKER:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch {
+			case key.Matches(msg, m.KeyMap.Confirm):
+				if len(m.Selected) != 0 {
+					m.Done = true
+					slog.Debug("confirm key caught", slog.Int("files", len(m.Selected)), slog.String("src", "filepicker"))
+				}
+			}
+		}
+		m.fp, cmd = m.fp.Update(msg)
+	case SELECTEDFILES:
+	switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch {
+			case key.Matches(msg, m.KeyMap.Confirm):
+				slog.Debug("deselecting", slog.String("file", m.fileList.SelectedItem().FilterValue()))
+				m.fileList.RemoveItem(m.fileList.Index())
+			}
+		}
+		m.fileList, cmd = m.fileList.Update(msg)
+	}
+
 	// check if a file was selected
 	if didSelect, path := m.fp.DidSelectFile(msg); didSelect {
 		slog.Debug("file selected", slog.String("path", path))
 		m.Selected = append(m.Selected, path)
+		m.fileList.InsertItem(
+			len(m.fileList.Items()),
+			selectedItem{path},
+		)
 		resizeMsg := tea.WindowSizeMsg{
 			Width:  m.width,
-			Height: m.height - len(m.Selected),
+			Height: m.height - m.fileList.Height(),
 		}
 		m.fp, _ = m.fp.Update(resizeMsg)
 	}
@@ -91,14 +153,15 @@ func (m Model) View() string {
 	b.WriteString(m.fp.View())
 
 	// TODO: make the list of selected files a scrollable list where files can be deselected
-	if len(m.Selected) != 0 {
-		// b.WriteString("\n\n\n\n")
-		for _, path := range m.Selected {
-			fmt.Fprintf(&b, "-> %s\n", path)
-		}
-	}
+	// if len(m.Selected) != 0 {
+	// 	// b.WriteString("\n\n\n\n")
+	// 	for _, path := range m.Selected {
+	// 		fmt.Fprintf(&b, "-> %s\n", path)
+	// 	}
+	// }
+	b.WriteString(m.fileList.View())
 
-	// when a file is selected for the first time the keymap jumps two lines up
+	// TODO: figure out how to handle the help texts better
 	b.WriteString("\n")
 	b.WriteString(m.help.View(m.KeyMap))
 	b.WriteString("\n")
@@ -109,24 +172,28 @@ func (m Model) View() string {
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		// ctrl+enter is not yet supported by bubbletea and is somewhat problematic in terminals
-		Confirm: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "confirm selection")),
-		Quit:    key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+q"), key.WithHelp("q", "quit")),
+		Confirm:            key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "confirm selection")),
+		FocusFilepicker:    key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "pick files")),
+		FocusSelectedFiles: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "remove selected files")),
+		Quit:               key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+q"), key.WithHelp("q", "quit")),
 	}
 }
 
 type KeyMap struct {
-	Confirm key.Binding
-	Quit    key.Binding
+	Confirm            key.Binding
+	FocusFilepicker    key.Binding
+	FocusSelectedFiles key.Binding
+	Quit               key.Binding
 }
 
 // keybindinds to be shown in the mini help view
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Confirm, k.Quit}
+	return []key.Binding{k.Confirm, k.FocusFilepicker, k.FocusSelectedFiles, k.Quit}
 }
 
 // keybinds to be shown in the full help view
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Confirm, k.Quit},
+		{k.Confirm, k.FocusFilepicker, k.FocusSelectedFiles, k.Quit},
 	}
 }
