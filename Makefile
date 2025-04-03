@@ -34,6 +34,7 @@ run: build
 release: clean 
 	${MKDIR} ${OUTPUT}${SEP}release
 	go build -ldflags="-s -w" -o ${OUTPUT}${SEP}release${SEP}${BINARY_NAME}${EXT} .${SEP}cmd${SEP}${BINARY_NAME}
+	go build -ldflags="-s -w" -o ${OUTPUT}${SEP}release${SEP}gclsnd${EXT} .${SEP}cmd${SEP}gclsnd
 
 # Utilities
 # todo: make a build that uses no external dependencies
@@ -50,4 +51,7 @@ uploader: setup
 	go build -o ${OUTPUT}${SEP}uploader${EXT} .${SEP}cmd${SEP}uploader
 
 tui: setup
-	go build -o ${OUTPUT}${SEP}gocalsend-tui${EXT} .${SEP}cmd${SEP}gocalsend-tui
+	go build -o ${OUTPUT}${SEP}gocalsend${EXT} .${SEP}cmd${SEP}gocalsend
+
+headless: setup
+	go huild -o ${OUTPUT}${SEP}gclsnd${EXT} .${SEP}cmd${SEP}gclsnd
