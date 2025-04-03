@@ -26,7 +26,9 @@ func New() Model {
 	}
 	fp.CurrentDirectory = home
 
-	fl := list.New(make([]list.Item, 0, 10), list.NewDefaultDelegate(), 5, 14)
+	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = false
+	fl := list.New(make([]list.Item, 0, 10), delegate, 5, 14)
 	fl.InfiniteScrolling = true
 	fl.SetShowHelp(false)
 	fl.SetShowStatusBar(false)
