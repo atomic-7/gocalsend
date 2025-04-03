@@ -47,17 +47,20 @@
 - [] pin support
 - [] TUI with the charm libraries
     - [] stack based scene manager to be able to go back easily? could be useful to return after incoming session requests
+    - [] split component that displays the help view of the active component on the bottom as well as an indicator for the active component?
     - [] fancy lipgloss styles
     - [] add a back button so the user can correct selected files
     - [] multi file select
-	- [] allow deselecting files in the selected file list
+	- [x] allow deselecting files in the selected file list
 	- [] make selecting folders configurable?
-    - [] screen to select peers
-	- [] display selected files
+    - [x] screen to select peers
+	- [x] display selected files
 	- [] refresh available peers on peer screen
-    - [] grab focus for session offers
+    - [x] grab focus for session offers
 - [] Progress display
     - [] provide hooks to the upload handler so it can report the progress to the ui?
+
+- [] Event Bus to decouple events from UI
 
 - [] Logging
     - [x] Look into structural logging with slog
