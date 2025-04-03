@@ -92,8 +92,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, m.KeyMap.Confirm):
-			slog.Info("entry selected", slog.String("screen", "peerScreen"), slog.String("peer", m.peers[m.cursor].Alias))
-			m.Done = true
+			if len(m.peers) != 0 {
+				slog.Info("entry selected", slog.String("screen", "peerScreen"), slog.String("peer", m.peers[m.cursor].Alias))
+				m.Done = true
+			}
+			return m, nil
 			return m, nil
     case key.Matches(msg, m.KeyMap.Back):
       slog.Debug("going back to file select")
