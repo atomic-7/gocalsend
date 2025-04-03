@@ -83,6 +83,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.peerModel, cmd = m.peerModel.Update(msg)
     if m.peerModel.ShouldGoBack {
       m.filepicker.Done = false
+      m.peerModel.ShouldGoBack = false
       m.screen = fileSelectScreen
       return m, nil
     }

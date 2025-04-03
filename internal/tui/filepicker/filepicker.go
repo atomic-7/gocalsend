@@ -100,7 +100,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			switch {
 			case key.Matches(msg, m.KeyMap.Confirm):
 				slog.Debug("deselecting", slog.String("file", m.fileList.SelectedItem().FilterValue()))
-				m.fileList.RemoveItem(m.fileList.Index())
+				index := m.fileList.Index()
+				// explicitly modifying the underlying array so that the change is observed by refs
+				m.Selected = append(m.Selected[:index], m.Selected[index+1:]...)
+				m.fileList.RemoveItem(index)
 			}
 		}
 		switch {
