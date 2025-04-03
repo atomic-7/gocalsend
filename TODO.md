@@ -49,10 +49,13 @@
     - [] stack based scene manager to be able to go back easily? could be useful to return after incoming session requests
     - [] split component that displays the help view of the active component on the bottom as well as an indicator for the active component?
     - [] fancy lipgloss styles
-    - [] add a back button so the user can correct selected files
+    - [x] add a back button so the user can correct selected files
     - [] multi file select
 	- [x] allow deselecting files in the selected file list
 	- [] make selecting folders configurable?
+    - [] settings screen, write changes to the config file
+	- [] figure out the best way to update the config of the running program (restarting all components would work I guess but is kinda lame)
+	- [] maybe reconsider the eventbus thing to use it for config updates
     - [x] screen to select peers
 	- [x] display selected files
 	- [] refresh available peers on peer screen
@@ -60,8 +63,8 @@
 - [] Progress display
     - [] provide hooks to the upload handler so it can report the progress to the ui?
 
-- [] Event Bus to decouple events from UI
-
+- [x] Event Bus to decouple events from UI
+    - [x] decided against doing it because the ui hook solution already decouples the headless client sufficiently and handles session offers neatly
 - [] Logging
     - [x] Look into structural logging with slog
     - [x] Add log levels for debugging

@@ -49,7 +49,7 @@ func NewModel(ctx context.Context, node *data.PeerInfo, appconfig *config.Config
 		filepicker: filepicker.New(),
 		config:     appconfig,
 		node:       node,
-		Context: ctx,
+		Context:    ctx,
 	}
 }
 
@@ -81,12 +81,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case peerScreen:
 		m.peerModel, cmd = m.peerModel.Update(msg)
-    if m.peerModel.ShouldGoBack {
-      m.filepicker.Done = false
-      m.peerModel.ShouldGoBack = false
-      m.screen = fileSelectScreen
-      return m, nil
-    }
+		if m.peerModel.ShouldGoBack {
+			m.filepicker.Done = false
+			m.peerModel.ShouldGoBack = false
+			m.screen = fileSelectScreen
+			return m, nil
+		}
 		if m.peerModel.Done {
 			slog.Debug("peer selected", slog.String("peer", m.peerModel.GetPeer().Alias))
 			slog.Debug("uploading files", slog.String("file", m.filepicker.Selected[0]))
@@ -96,7 +96,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				err := m.Uploader.UploadFiles(m.peerModel.GetPeer(), m.filepicker.Selected)
 				if err != nil {
 					if errors.Is(err, context.Canceled) {
-						slog.Debug("upload cancelled" )
+						slog.Debug("upload cancelled")
 					} else {
 						slog.Error("upload failed", slog.Any("error", err))
 					}
@@ -112,7 +112,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case fileSelectScreen:
 		m.filepicker, cmd = m.filepicker.Update(msg)
 		if m.filepicker.Done {
-      m.peerModel.Files = &m.filepicker.Selected
+			m.peerModel.Files = &m.filepicker.Selected
 			m.screen = peerScreen
 		}
 	case transfersScreen:
