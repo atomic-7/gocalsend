@@ -2,13 +2,10 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"log/slog"
 	"net"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/atomic-7/gocalsend/internal/config"
@@ -33,50 +30,13 @@ func main() {
 	charmLogger := log.NewWithOptions(os.Stdout, logOpts)
 	slog.SetDefault(slog.New(charmLogger))
 
-	configPath := ""
-	for idx, arg := range os.Args {
-		if arg == "--config" || arg == "-config" {
-			if len(os.Args) <= idx+1 {
-				slog.Error("You need to specify a config file with the config flag")
-				os.Exit(1)
-			}
-			configPath = os.Args[idx+1]
-			break
-		}
-		if strings.HasPrefix(arg, "--config=") || strings.HasPrefix(arg, "-config=") {
-			configPath = strings.SplitN(arg, "=", 2)[1]
-			break
-		}
-	}
-	if configPath != "" {
-		slog.Debug("parsed path", slog.Any("path", configPath))
-	}
-
-	appConf, err := config.Load(configPath)
+	appConf, err := config.Setup()
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			appConf, err = config.Default()
-			if err != nil {
-				os.Exit(1)
-			}
-			slog.Info("No config file found. Generating a new one.")
-			appConf.Store(configPath)
-		} else {
-			os.Exit(1)
-		}
+		slog.Error("failed to setup configuration. exiting.", slog.Any("err", err))
 	}
 
-	flag.IntVar(&appConf.Port, "port", appConf.Port, "The port to listen for the api endpoints")
-	flag.StringVar(&appConf.TLSInfo.Cert, "cert", appConf.TLSInfo.Cert, "The filename of the tls certificate")
-	flag.StringVar(&appConf.TLSInfo.Key, "key", appConf.TLSInfo.Key, "The filename of the tls private key")
-	flag.StringVar(&appConf.TLSInfo.Dir, "credentials", appConf.TLSInfo.Dir, "The path to the tls credentials")
-	flag.BoolVar(&appConf.UseTLS, "usetls", appConf.UseTLS, "Use https (usetls=true) or use http (usetls=false)")
-	flag.StringVar(&appConf.LogLevel, "loglevel", appConf.LogLevel, "Log level can be 'info', 'debug' or 'none'")
 	flag.StringVar(&command, "cmd", "receive", "command to execute: rec, receive, snd, send, ls")
 	flag.StringVar(&peerAlias, "peer", "", "alias of the peer to send to. find out with gocalsend --cmd=ls")
-	flag.IntVar(&appConf.PeerDiscoveryTime, "lstime", appConf.PeerDiscoveryTime, "time to wait for peer discovery")
-	flag.StringVar(&appConf.DownloadFolder, "out", appConf.DownloadFolder, "path to where incoming files are saved")
-	flag.Parse()
 
 	// TODO: implement log level none
 	logOpts = log.Options{
@@ -95,28 +55,6 @@ func main() {
 	}
 	charmLogger = log.NewWithOptions(os.Stdout, logOpts)
 	slog.SetDefault(slog.New(charmLogger))
-
-	// setup the download folder
-	if appConf.DownloadFolder != "" {
-		if appConf.DownloadFolder[0] == '~' {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				slog.Error("could not get user home directory", slog.Any("error", err))
-				os.Exit(1)
-			}
-			appConf.DownloadFolder = filepath.Join(home, appConf.DownloadFolder[1:])
-		}
-	} else {
-		// This might be redundant seeing as this is already part of the default config
-		home, err := os.UserHomeDir()
-		if err != nil {
-			slog.Error("could not get user home directory", slog.Any("error", err))
-			os.Exit(1)
-		}
-		slog.Debug("user home", slog.String("home", home))
-		appConf.DownloadFolder = filepath.Join(home, "Downloads", "gocalsend")
-	}
-	slog.Info("download folder", slog.String("out", appConf.DownloadFolder))
 
 	node := &data.PeerInfo{
 		Alias:       appConf.Alias,
