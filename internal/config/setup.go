@@ -37,7 +37,7 @@ func Setup() (*Config, error) {
 			if err != nil {
 				os.Exit(1)
 			}
-			slog.Info("No config file found. Generating a new one.")
+			slog.Debug("No config file found. Generating a new one.")
 			appConf.Store(configPath)
 		} else {
 			os.Exit(1)

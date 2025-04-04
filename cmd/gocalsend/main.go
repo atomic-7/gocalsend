@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log/slog"
 	"net"
 	"os"
@@ -23,17 +24,16 @@ import (
 
 func main() {
 
-	logfile, err := os.Create("debug.log")
-	if err != nil {
-		os.Exit(1)
-	}
 	logOpts := log.Options{
-		Level: log.InfoLevel,
+		Level: log.DebugLevel,
 	}
-	charmLogger := log.NewWithOptions(logfile, logOpts)
+	charmLogger := log.NewWithOptions(os.Stderr, logOpts)
 	slog.SetDefault(slog.New(charmLogger))
 
 	appConf, err := config.Setup()
+	if err != nil {
+		slog.Error("error setting up config", slog.Any("err", err))
+	}
 
 	logOpts = log.Options{
 		Level: log.DebugLevel,
@@ -49,14 +49,23 @@ func main() {
 	case "default":
 		logOpts.Level = log.InfoLevel
 	}
-	charmLogger = log.NewWithOptions(logfile, logOpts)
+
+	if appConf.Mode == config.AppMode(config.TUI) {
+		logfile, err := os.Create("debug.log")
+		if err != nil {
+			os.Exit(1)
+		}
+		charmLogger = log.NewWithOptions(logfile, logOpts)
+	} else {
+		charmLogger = log.NewWithOptions(os.Stderr, logOpts)
+	}
 	slog.SetDefault(slog.New(charmLogger))
 
 	node := &data.PeerInfo{
 		Alias:       appConf.Alias,
 		Version:     "2.0",
 		DeviceModel: "cli",
-		DeviceType:  "headless",
+		DeviceType:  "headless", // TODO: decide depending on mode
 		Fingerprint: "",
 		Port:        appConf.Port,
 		Protocol:    "http",
@@ -91,35 +100,104 @@ func main() {
 
 	registratinator := discovery.NewRegistratinator(node)
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	model := tui.NewModel(ctx, node, appConf)
-	p := tea.NewProgram(&model)
-	peers := hooks.NewPeerMap(p)
-	uihooks := hooks.NewHooks(p)
-	sessionManager := sessions.NewSessionManager(ctx, appConf.DownloadFolder, uihooks)
-	model.Uploader = uploader.CreateUploader(node, sessionManager)
-	// dlManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
-	model.SetupSessionManagers(sessionManager)
+	var peers data.PeerTracker
+	var eventHooks sessions.UIHooks
+	if appConf.Mode == config.AppMode(config.TUI) {
 
-	runAnnouncement := func() {
-		err := discovery.AnnounceViaMulticast(node, multicastAddr)
-		if err != nil {
-			registratinator.RegisterAtSubnet(ctx, peers)
+		model := tui.NewModel(ctx, node, appConf)
+		p := tea.NewProgram(&model)
+		peers = hooks.NewPeerMap(p)
+		runAnnouncement := announcer(ctx, node, multicastAddr, peers, registratinator)
+		eventHooks = hooks.NewHooks(p)
+		sessionManager := sessions.NewSessionManager(ctx, appConf.DownloadFolder, eventHooks)
+		model.Uploader = uploader.CreateUploader(node, sessionManager)
+		// dlManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
+		model.SetupSessionManagers(sessionManager)
+		go server.StartServer(ctx, node, peers, sessionManager, appConf.TLSInfo, appConf.DownloadFolder)
+		go discovery.MonitorMulticast(ctx, multicastAddr, node, peers, registratinator)
+		runAnnouncement()
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		go intervalRunner(ctx, runAnnouncement, ticker)
+		slog.Info("starting tea program")
+		if _, err := p.Run(); err != nil {
+			slog.Error("Error runnnig bubble program", slog.Any("error", err))
+			os.Exit(1)
 		}
-	}
-	go server.StartServer(ctx, node, peers, sessionManager, appConf.TLSInfo, appConf.DownloadFolder)
-	go discovery.MonitorMulticast(ctx, multicastAddr, node, peers, registratinator)
-	runAnnouncement()
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
-	go intervalRunner(ctx, runAnnouncement, ticker)
-	slog.Info("starting tea program")
-	if _, err := p.Run(); err != nil {
-		slog.Error("Error runnnig bubble program", slog.Any("error", err))
+
+	} else if appConf.Mode == config.AppMode(config.CLI) {
+
+		peerMap := data.NewPeerMap()
+		pm := *peerMap.GetMap()
+		pm["self"] = node // TODO: check if this is still necessary
+		peerMap.ReleaseMap()
+		peers = peerMap
+		runAnnouncement := announcer(ctx, node, multicastAddr, peers, registratinator)
+		eventHooks = &sessions.HeadlessUI{}
+		sessionManager := sessions.NewSessionManager(ctx, appConf.DownloadFolder, eventHooks)
+
+		go server.StartServer(ctx, node, peers, sessionManager, appConf.TLSInfo, appConf.DownloadFolder)
+		go discovery.MonitorMulticast(ctx, multicastAddr, node, peers, registratinator)
+		runAnnouncement()
+		switch appConf.CliArgs["cmd"] {
+		case "ls":
+			sleepDuration := appConf.PeerDiscoveryTime * int(time.Second)
+			time.Sleep(time.Duration(sleepDuration))
+			pm = *peerMap.GetMap()
+			if len(pm) != 1 {
+				charmLogger.Printf("Peerlist:")
+				for _, peer := range pm {
+					if peer.Alias == node.Alias {
+						continue
+					}
+					charmLogger.Printf(peer.Alias)
+				}
+			} else {
+				slog.Info("Found no peers")
+			}
+
+		case "snd", "send":
+			if appConf.CliArgs["peer"] == "" {
+				slog.Error("no peer specified")
+				os.Exit(1)
+			}
+			time.Sleep(3 * time.Second)
+			pm = *peerMap.GetMap()
+			var target *data.PeerInfo
+			for _, peer := range pm {
+				if peer.Alias == appConf.CliArgs["peer"] {
+					target = peer
+				}
+			}
+			if target == nil {
+				slog.Error("Peer is not available.", slog.String("peer", appConf.CliArgs["peer"]))
+				os.Exit(1)
+			}
+			peerMap.ReleaseMap()
+			slog.Debug("Peer", slog.Any("info", target))
+			upl := uploader.CreateUploader(node, sessionManager)
+			// passing the args will only work while cmd is passed as --cmd
+			// this will need to be changed when the command will be passed directly
+			upl.UploadFiles(target, flag.Args())
+
+		case "rcv", "rec", "recv", "receive":
+			ticker := time.NewTicker(1 * time.Minute)
+			defer ticker.Stop()
+			intervalRunner(ctx, runAnnouncement, ticker)
+
+		default:
+			slog.Error("unknown command", slog.String("cmd", appConf.CliArgs["cmd"]))
+		}
+
+	} else {
+		slog.Error("unknown mode")
 		os.Exit(1)
 	}
+
 }
 
 func intervalRunner(ctx context.Context, f func(), ticker *time.Ticker) {
@@ -130,6 +208,15 @@ func intervalRunner(ctx context.Context, f func(), ticker *time.Ticker) {
 			return
 		case <-ticker.C:
 			f()
+		}
+	}
+}
+
+func announcer(ctx context.Context, node *data.PeerInfo, multicastAddr *net.UDPAddr, peers data.PeerTracker, registratinator *discovery.Registratinator) func() {
+	return func() {
+		err := discovery.AnnounceViaMulticast(node, multicastAddr)
+		if err != nil {
+			registratinator.RegisterAtSubnet(ctx, peers)
 		}
 	}
 }

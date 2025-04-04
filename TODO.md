@@ -37,6 +37,8 @@
     - [x] send post request to target/api/localsend/v2/upload?sessionId=<id>&fileId=<fileid>&token=<fileToken>
 - [] Send cmdline arg text
 - [] Send multiple files
+- [] Improve argument parsing, could use flag groups
+    -> switch on the firsts argument, then parse the corresponding flag group
 
 - [] cancel session
     - [x] implement /api/localsend/v2/cancel?sessionId="<sessionId>"

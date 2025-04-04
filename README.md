@@ -1,9 +1,8 @@
 # Gocalsend
 An implementation of the localsend protocol in go.
+The gclsnd binary has only the cli logic, the gocalsend binary supports both cli and tui mode.
 
-The actual parameters might still change in the future, but right now only the arg parsing from the standard library is used.
-There is a headless client called `gclsnd` and the tui client called `gocalsend`.
-Currently only the headless client allows using the `--cmd` flag, but soon<sup>TM</sup> the tui will behave like the headless client when the `--cmd` flag is passed.
+The actual parameters might still change in the future.
 
 ## Usage
 ### Discover Peers
