@@ -10,6 +10,13 @@ import (
 	"github.com/atomic-7/gocalsend/internal/data"
 )
 
+const (
+	TUI = iota
+	CLI
+)
+
+type AppMode int
+
 type Config struct {
 	Alias             string
 	DownloadFolder    string
@@ -19,6 +26,8 @@ type Config struct {
 	UseTLS            bool
 	TLSInfo           *data.TLSPaths
 	Version           int
+	Mode              AppMode           `toml:"-"`
+	CliArgs           map[string]string `toml:"-"`
 }
 
 func Default() (*Config, error) {
@@ -45,6 +54,8 @@ func Default() (*Config, error) {
 			Dir: filepath.Join(confdir, "gocalsend"),
 		},
 		Version: 0,
+		Mode:    AppMode(CLI),
+		CliArgs: make(map[string]string),
 	}, nil
 }
 
@@ -73,6 +84,7 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	err = toml.Unmarshal(file, config)
+	config.CliArgs = make(map[string]string)
 
 	return config, nil
 }

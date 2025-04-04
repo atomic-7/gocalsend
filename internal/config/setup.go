@@ -29,6 +29,7 @@ func Setup() (*Config, error) {
 		slog.Debug("parsed path", slog.Any("path", configPath))
 	}
 
+	// TODO: Expand ~ to home dir here
 	appConf, err := Load(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -43,6 +44,12 @@ func Setup() (*Config, error) {
 		}
 	}
 
+	// these are only here for the cli. maybe this can be passed on more elegantly
+	cmd := "recv"
+	peer := ""
+
+	flag.StringVar(&cmd, "cmd", cmd, "The command to execute. (recv, send, ls)")
+	flag.StringVar(&cmd, "peer", peer, "Peer to send to. Find available with '--cmd=ls'")
 	flag.IntVar(&appConf.Port, "port", appConf.Port, "The port to listen for the api endpoints")
 	flag.StringVar(&appConf.TLSInfo.Cert, "cert", appConf.TLSInfo.Cert, "The filename of the tls certificate")
 	flag.StringVar(&appConf.TLSInfo.Key, "key", appConf.TLSInfo.Key, "The filename of the tls private key")
@@ -51,6 +58,7 @@ func Setup() (*Config, error) {
 	flag.StringVar(&appConf.LogLevel, "loglevel", appConf.LogLevel, "Log level can be 'info', 'debug' or 'none'")
 	flag.IntVar(&appConf.PeerDiscoveryTime, "lstime", appConf.PeerDiscoveryTime, "time to wait for peer discovery")
 	flag.StringVar(&appConf.DownloadFolder, "out", appConf.DownloadFolder, "path to where incoming files are saved")
+	flag.StringVar(&configPath, "config", configPath, "Path to the config.toml file")
 	flag.Parse()
 
 	if appConf.DownloadFolder != "" {
@@ -73,5 +81,14 @@ func Setup() (*Config, error) {
 		appConf.DownloadFolder = filepath.Join(home, "Downloads", "gocalsend")
 	}
 	slog.Info("download folder", slog.String("out", appConf.DownloadFolder))
+
+	if cmd == "none" {
+		appConf.Mode = AppMode(TUI)
+	} else {
+		appConf.Mode = AppMode(CLI)
+	}
+	appConf.CliArgs["cmd"] = cmd
+	appConf.CliArgs["peer"] = peer
+
 	return appConf, nil
 }

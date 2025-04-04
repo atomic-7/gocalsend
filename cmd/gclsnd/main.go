@@ -20,9 +20,6 @@ import (
 
 func main() {
 
-	var command string
-	var peerAlias string
-
 	// setup logger so config loading can log, reconfigure later
 	logOpts := log.Options{
 		Level: log.InfoLevel,
@@ -35,9 +32,8 @@ func main() {
 		slog.Error("failed to setup configuration. exiting.", slog.Any("err", err))
 	}
 
-	flag.StringVar(&command, "cmd", "receive", "command to execute: rec, receive, snd, send, ls")
-	flag.StringVar(&peerAlias, "peer", "", "alias of the peer to send to. find out with gocalsend --cmd=ls")
-
+	command := appConf.CliArgs["cmd"]
+	peerAlias := appConf.CliArgs["peer"]
 	// TODO: implement log level none
 	logOpts = log.Options{
 		Level: log.DebugLevel,
