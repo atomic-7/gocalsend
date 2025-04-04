@@ -53,5 +53,5 @@ uploader: setup
 tui: setup
 	go build -o ${OUTPUT}${SEP}gocalsend${EXT} .${SEP}cmd${SEP}gocalsend
 
-headless: setup
-	go huild -o ${OUTPUT}${SEP}gclsnd${EXT} .${SEP}cmd${SEP}gclsnd
+cli: setup
+	go build -o ${OUTPUT}${SEP}gclsnd${EXT} .${SEP}cmd${SEP}gclsnd
