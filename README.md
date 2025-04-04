@@ -1,24 +1,25 @@
 # Gocalsend
 An implementation of the localsend protocol in go.
 
-There is a headless client called `gclsnd` and the tui client called `gocalsend`
-Currently only the headless client allows using the `--cmd` flag.
+The actual parameters might still change in the future, but right now only the arg parsing from the standard library is used.
+There is a headless client called `gclsnd` and the tui client called `gocalsend`.
+Currently only the headless client allows using the `--cmd` flag, but soon<sup>TM</sup> the tui will behave like the headless client when the `--cmd` flag is passed.
 
 ## Usage
 ### Discover Peers
-Use `gocalsend --cmd=ls` to discover peers.
+Use `gclsnd --cmd=ls` to discover peers.
 ```
 gclsnd --cmd=ls --lstime=4
 ```
 The `lstime` parameter is optional and specifies how long to wait for peers to respond.
 ### Send a File
-After having found the alias of the peer you want to send your files to, use `gocalsend --cmd=send` to send them.
+After having found the alias of the peer you want to send your files to, use `gclsnd --cmd=send` to send them.
 ```
 gclsnd --cmd=send --peer=<your peer alias here> <file1> <file2> <file3>
 ```
 Instead of `--cmd=send` you could also use the short form '--cmd=snd'. Gotta save those characters.
 ### Receive Files
-Use `gocalsend --cmd=receive` to wait for incoming files from peers on the network.
+Use `gclsnd --cmd=receive` to wait for incoming files from peers on the network.
 ```
 gclsnd --cmd=receive
 ```
@@ -43,6 +44,11 @@ The log level can be set to one of either `none`, `debug` or `info`.
 gocalsend --loglevel=debug
 ```
 The `none` log level will be implemented soon<sup>TM</sup>
+
+### Help
+```
+gocalsend --help
+```
 
 ## Configuration
 The configuration file is stored in the xdg config folder. If this environment variable is unset this location defaults to $HOME/.config/ on unix based systems or %appdata% on windows. 
