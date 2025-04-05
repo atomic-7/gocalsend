@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	TUI = iota
-	CLI
+	CLI = iota
+	TUI
 )
 
 type AppMode int

@@ -82,11 +82,12 @@ func Setup() (*Config, error) {
 	}
 	slog.Info("download folder", slog.String("out", appConf.DownloadFolder))
 
-	if cmd == "none" {
-		appConf.Mode = AppMode(TUI)
-	} else {
+	if cmd == "ls" || peer != "" {
 		appConf.Mode = AppMode(CLI)
+	} else {
+		appConf.Mode = AppMode(TUI)
 	}
+
 	appConf.CliArgs["cmd"] = cmd
 	appConf.CliArgs["peer"] = peer
 

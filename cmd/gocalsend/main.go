@@ -104,6 +104,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	slog.Debug("config", slog.Int("mode", int(appConf.Mode)))
 	var peers data.PeerTracker
 	var eventHooks sessions.UIHooks
 	if appConf.Mode == config.AppMode(config.TUI) {
