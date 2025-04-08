@@ -29,13 +29,12 @@ gclsnd --cmd=receive --out=<path> --port=53320
 Instead of `receive` you may also pass `rcv`, `rec` or `recv` to save some time.
 If you ***really*** want to save time then don't pass any command, to receive files is the default behavior.
 ### Encryption
-Per default, gocalsend creates a subfolder `./cert` in the folder it is currently running.
-If this folder already exists it will reuse the certificate inside, otherwise a new one will be generated. If you want to use your own certificate you will have to specify where the cert and its key are stored.
+gocalsend uses a rsa 2048 bit privte key as that is what the localsend reference implementation does.
+Per default, gocalsend generates certificates in the config folder if they don't already exist
+If you want to use your own certificate you will have to specify where the cert and its key are stored, either via flags or in the config file.
 ```
 gclsnd --cert=<path/to/cert> --key=<path/to/key>
 ```
-Hopefully you will be able to do this in the config someday.
-gocalsend uses a rsa 2048 bit privte key as that is what the localsend reference implementation does.
 
 ### Logging
 The log level can be set to one of either `none`, `debug` or `info`. 
