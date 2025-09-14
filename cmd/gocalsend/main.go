@@ -110,7 +110,7 @@ func main() {
 	if appConf.Mode == config.AppMode(config.TUI) {
 
 		model := tui.NewModel(ctx, node, appConf)
-		p := tea.NewProgram(&model)
+		p := tea.NewProgram(&model, tea.WithAltScreen())
 		peers = hooks.NewPeerMap(p)
 		runAnnouncement := announcer(ctx, node, multicastAddr, peers, registratinator)
 		eventHooks = hooks.NewHooks(p)
