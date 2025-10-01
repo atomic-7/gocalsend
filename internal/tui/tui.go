@@ -2,7 +2,6 @@ package tui
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,14 +12,15 @@ import (
 	"github.com/atomic-7/gocalsend/internal/tui/filepicker"
 	"github.com/atomic-7/gocalsend/internal/tui/hooks"
 	"github.com/atomic-7/gocalsend/internal/tui/peers"
+	screens "github.com/atomic-7/gocalsend/internal/tui/screens"
 	"github.com/atomic-7/gocalsend/internal/tui/sessions"
 	"github.com/atomic-7/gocalsend/internal/tui/transfers"
 	"github.com/atomic-7/gocalsend/internal/uploader"
 )
 
 type Model struct {
-	screen       uint
-	prevScreen   uint
+	screen       screens.Screen
+	prevScreen   screens.Screen
 	peerModel    peers.Model
 	sessionModel sessions.Model
 	filepicker   filepicker.Model
@@ -33,18 +33,10 @@ type Model struct {
 
 type AddSessionManager *sessionmanager.SessionManager
 
-const (
-	peerScreen = iota
-	acceptScreen
-	fileSelectScreen
-	settingsScreen
-	transfersScreen
-)
-
 func NewModel(ctx context.Context, node *data.PeerInfo, appconfig *config.Config) Model {
 	return Model{
-		screen:     fileSelectScreen,
-		prevScreen: peerScreen,
+		screen:     screens.FileSelectScreen,
+		prevScreen: screens.PeerScreen,
 		peerModel:  peers.NewPSModel(),
 		filepicker: filepicker.New(),
 		config:     appconfig,
@@ -63,43 +55,54 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case *hooks.SessionOffer:
 		slog.Debug("incoming session offer", slog.String("src", "main update"))
 		m.prevScreen = m.screen
-		m.screen = acceptScreen
+		m.screen = screens.AcceptScreen
 	case *hooks.SessionCancelled:
 		slog.Debug("session cancelled", slog.String("src", "main update"))
-		m.screen = fileSelectScreen
+		m.screen = screens.FileSelectScreen
 	case peers.AddPeerMsg:
 		m.peerModel.AddPeer(msg)
 		slog.Debug("received peermessage", slog.String("peer", msg.Alias))
 	case peers.DelPeerMsg:
 		m.peerModel.DelPeer(msg)
+	case screens.Screen:
+		m.prevScreen = m.screen
+		m.screen = msg
+		if m.screen == screens.FileSelectScreen {
+			m.filepicker.Reset()
+			m.peerModel.Reset()
+		}
+		slog.Debug("switching screen", slog.Any("screen", m.screen))
+		return m, nil
 	}
+
 	var cmd tea.Cmd
 	switch m.screen {
-	case acceptScreen:
+	case screens.AcceptScreen:
 		// TODO: use batch to create a timer that sends false on the response channel
 		m.sessionModel, cmd = m.sessionModel.Update(msg)
 		if m.sessionModel.ShouldClose() {
 			slog.Debug("session handler screen should close")
 			m.screen = m.prevScreen
 		}
-	case peerScreen:
+	case screens.PeerScreen:
 		m.peerModel, cmd = m.peerModel.Update(msg)
 		if m.peerModel.ShouldGoBack {
 			m.filepicker.Done = false
 			m.peerModel.ShouldGoBack = false
-			m.screen = fileSelectScreen
+			m.screen = screens.FileSelectScreen
 			return m, nil
 		}
 		if m.peerModel.Done {
 			slog.Debug("peer selected", slog.String("peer", m.peerModel.GetPeer().Alias))
 			slog.Debug("uploading files", slog.String("file", m.filepicker.Selected[0]))
 			// send file, display ongoing transfers
-			m.screen = transfersScreen
+			m.screen = screens.TransfersScreen
 			cmd = tea.Batch(cmd, func() tea.Msg {
 				err := m.Uploader.UploadFiles(m.peerModel.GetPeer(), m.filepicker.Selected)
 				if err != nil {
-					if errors.Is(err, context.Canceled) {
-						slog.Debug("upload cancelled")
+					if err.Error() == "Rejected" {
+						slog.Debug("upload cancelled by peer")
+						return hooks.SessionCancelled(true)
 					} else {
 						slog.Error("upload failed", slog.Any("error", err))
 					}
@@ -112,13 +115,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return hooks.SessionCreated(true)
 			})
 		}
-	case fileSelectScreen:
+	case screens.FileSelectScreen:
 		m.filepicker, cmd = m.filepicker.Update(msg)
 		if m.filepicker.Done {
 			m.peerModel.Files = &m.filepicker.Selected
-			m.screen = peerScreen
+			m.screen = screens.PeerScreen
 		}
-	case transfersScreen:
+	case screens.TransfersScreen:
 		m.transfers, cmd = m.transfers.Update(msg)
 	}
 
@@ -127,13 +130,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	switch m.screen {
-	case peerScreen:
+	case screens.PeerScreen:
 		return m.peerModel.View()
-	case acceptScreen:
+	case screens.AcceptScreen:
 		return m.sessionModel.View()
-	case fileSelectScreen:
+	case screens.FileSelectScreen:
 		return m.filepicker.View()
-	case transfersScreen:
+	case screens.TransfersScreen:
 		return m.transfers.View()
 	}
 	return "wth no scren?"

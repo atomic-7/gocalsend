@@ -7,6 +7,7 @@ import (
 
 	"github.com/atomic-7/gocalsend/internal/sessions"
 	"github.com/atomic-7/gocalsend/internal/tui/hooks"
+	"github.com/atomic-7/gocalsend/internal/tui/screens"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -45,6 +46,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m, tea.Sequence(m.cancelAllSessions, tea.Quit)
 		case key.Matches(msg, m.KeyMap.Cancel):
 			return m, m.cancelAllSessions
+		case key.Matches(msg, m.KeyMap.FileSelect):
+			return m, screens.SwitchScreen(screens.FileSelectScreen)
 		}
 	case hooks.FileFinished:
 		slog.Debug("received file finished msg", slog.String("src", "transfers"))
@@ -53,8 +56,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case hooks.SessionFinished:
 		slog.Debug("received session finished msg", slog.String("src", "transfers"))
 	case hooks.SessionCancelled:
+		// TODO: Display that the session got cancelled
 		slog.Debug("received session cancelled msg", slog.String("src", "transfers"))
-
+		return m, screens.SwitchScreen(screens.FileSelectScreen)
 	}
 	return m, nil
 }
@@ -86,14 +90,16 @@ func (m Model) Init() tea.Cmd {
 
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
-		Quit:   key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+q"), key.WithHelp("q", "quit")),
-		Cancel: key.NewBinding(key.WithKeys("c", "esc"), key.WithHelp("esc", "cancel")),
+		Quit:       key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+q"), key.WithHelp("q", "quit")),
+		Cancel:     key.NewBinding(key.WithKeys("c", "esc"), key.WithHelp("esc", "cancel")),
+		FileSelect: key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "pick files to send")),
 	}
 }
 
 type KeyMap struct {
-	Quit   key.Binding
-	Cancel key.Binding
+	Quit       key.Binding
+	Cancel     key.Binding
+	FileSelect key.Binding
 }
 
 func (k KeyMap) ShortHelp() []key.Binding {

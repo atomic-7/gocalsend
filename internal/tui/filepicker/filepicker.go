@@ -75,6 +75,10 @@ func (m Model) Init() tea.Cmd {
 	return m.fp.Init()
 }
 
+func (m Model) Reset() {
+	m.Done = false
+}
+
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
@@ -124,24 +128,25 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch m.focus {
 	case FILEPICKER:
 		m.fp, cmd = m.fp.Update(msg)
+
+		// check if a file was selected
+		if didSelect, path := m.fp.DidSelectFile(msg); didSelect {
+			slog.Debug("file selected", slog.String("path", path))
+			m.Selected = append(m.Selected, path)
+			m.fileList.InsertItem(
+				len(m.fileList.Items()),
+				selectedItem{path},
+			)
+			resizeMsg := tea.WindowSizeMsg{
+				Width:  m.width,
+				Height: m.height - m.fileList.Height(),
+			}
+			m.fp, _ = m.fp.Update(resizeMsg)
+		}
 	case SELECTEDFILES:
 		m.fileList, cmd = m.fileList.Update(msg)
 	}
 
-	// check if a file was selected
-	if didSelect, path := m.fp.DidSelectFile(msg); didSelect {
-		slog.Debug("file selected", slog.String("path", path))
-		m.Selected = append(m.Selected, path)
-		m.fileList.InsertItem(
-			len(m.fileList.Items()),
-			selectedItem{path},
-		)
-		resizeMsg := tea.WindowSizeMsg{
-			Width:  m.width,
-			Height: m.height - m.fileList.Height(),
-		}
-		m.fp, _ = m.fp.Update(resizeMsg)
-	}
 	// check if a file was selected that the filters disable
 	// if didSelect, path := m.fp.DidSelectDisabledFile(msg); didSelect {
 	// 	//TODO: implement display of error message

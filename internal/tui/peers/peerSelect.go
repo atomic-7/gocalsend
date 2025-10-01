@@ -77,6 +77,10 @@ func (m Model) Init() tea.Cmd {
 	return nil
 }
 
+func (m Model) Reset() {
+	m.Done = false
+}
+
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:

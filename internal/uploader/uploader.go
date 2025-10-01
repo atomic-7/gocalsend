@@ -7,14 +7,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/atomic-7/gocalsend/internal/data"
-	"github.com/atomic-7/gocalsend/internal/sessions"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/atomic-7/gocalsend/internal/data"
+	"github.com/atomic-7/gocalsend/internal/sessions"
 )
 
 type Uploader struct {
@@ -58,8 +59,9 @@ func (cl *Uploader) UploadFiles(peer *data.PeerInfo, files []string) error {
 
 	sessionID, err := cl.prepareUpload(peer, files)
 	if err != nil {
+		// TODO: pass in a context to use?
 		slog.Error("failed to prepare file upload", slog.Any("error", err))
-		os.Exit(1)
+		return err
 	}
 
 	sess := cl.SessMan.Uploads[sessionID]
@@ -68,6 +70,7 @@ func (cl *Uploader) UploadFiles(peer *data.PeerInfo, files []string) error {
 		select {
 		case <-ctx.Done():
 			// TODO: clean up downloaded files?
+			// break is useless here but just putting something here for now
 			break
 		default:
 			slog.Info("uploading file", slog.String("file", file.FileName))
@@ -195,11 +198,11 @@ func (cl *Uploader) singleUpload(ctx context.Context, peer *data.PeerInfo, sessI
 	base.RawQuery = params.Encode()
 
 	fh, err := os.Open(file.Destination)
-	defer fh.Close()
 	if err != nil {
 		slog.Error("failed to open file for upload", slog.Any("error", err))
 		os.Exit(1)
 	}
+	defer fh.Close()
 
 	client := cl.client
 	if peer.Protocol == "https" {
