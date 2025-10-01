@@ -64,6 +64,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		slog.Debug("incoming session offer", slog.String("src", "main update"))
 		m.prevScreen = m.screen
 		m.screen = acceptScreen
+	case *hooks.SessionCancelled:
+		slog.Debug("session cancelled", slog.String("src", "main update"))
+		m.screen = fileSelectScreen
 	case peers.AddPeerMsg:
 		m.peerModel.AddPeer(msg)
 		slog.Debug("received peermessage", slog.String("peer", msg.Alias))
