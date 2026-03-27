@@ -28,8 +28,11 @@
     - [x] respond with session id and file tokens
     - [x] receive file at /api/localsend/v2/upload?sessionId=<id>&fileId=<fileid>&token=<fileToken>
         (upload route should be callable in parallel)
-- [x] Receive multiple files
+- [] Receive multiple files
 	- [x] File sink: maintain a list of received files (session manager)
+    - [] receive entire folders
+        - [] create new folder
+        - [] create subfolders as required
 - [x] Send a single file
     - [x] send post request to target/api/localsend/v2/prepare-upload
         {"info":"<local node info>", "files": { "some-file-id":{..}, "other-file-id":{}}}
@@ -64,6 +67,8 @@
     - [x] grab focus for session offers
 - [] Progress display
     - [] provide hooks to the upload handler so it can report the progress to the ui?
+    - [] indicate that sessions are ongoing
+    - [] add a keybind so all ongoing sessions can be listed and inspected
 
 - [x] Event Bus to decouple events from UI
     - [x] decided against doing it because the ui hook solution already decouples the headless client sufficiently and handles session offers neatly
@@ -81,7 +86,7 @@
     - [] Figure out unit testing for http endpoints
 
 - [] Config
-    - [x] Choose a suitable config format
+    - [x] Choose a suitable config format (toml)
     - [x] use config to allow user to specify their own tls certs
 
 - [] Misc

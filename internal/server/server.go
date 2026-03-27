@@ -131,6 +131,7 @@ func createUploadHandler(sman *sessions.SessionManager) http.Handler {
 		sessID := r.Form.Get("sessionId")
 		fileID := r.Form.Get("fileId")
 		token := r.Form.Get("token")
+		// This errors for some reason, could be that the remote is trying to send before we are done?
 		if _, ok := sman.Downloads[sessID]; !ok {
 			logga.Error("invalid session", slog.String("sessionId", sessID))
 			w.WriteHeader(403)
@@ -152,23 +153,26 @@ func createUploadHandler(sman *sessions.SessionManager) http.Handler {
 		}
 		path := sman.BasePath
 		if file.Destination != "" {
+			logga.Debug("non-default destination", slog.String("path", file.Destination))
 			path = file.Destination
-			// TODO: Create potentially missing folders
 		}
 		logga.Debug("dl path", slog.String("path", path), slog.String("name", file.FileName), slog.String("dest", file.Destination))
 
-		err := os.MkdirAll(path, os.ModePerm)
+		// full path of the file to create
+		destination := filepath.Join(path, file.FileName)
+		err := os.MkdirAll(filepath.Dir(destination), os.ModePerm)
 		if err != nil {
 			logga.Error("failed to create output directory", slog.String("out", path))
 		}
 
-		osFile, err := os.Create(filepath.Join(path, file.FileName))
-		defer osFile.Close()
+		osFile, err := os.Create(destination)
+
 		if err != nil {
 			logga.Error("failed to create file ", slog.String("file", path+"/"+file.FileName), slog.Any("error", err))
 			w.WriteHeader(500)
 			return
 		}
+		defer osFile.Close()
 
 		_, err = osFile.ReadFrom(r.Body) // could probably also use io.Copy
 		if err != nil {

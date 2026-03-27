@@ -14,6 +14,7 @@ import (
 )
 
 type SessionManager struct {
+	// check if this can be replaced with a validated type
 	BasePath string
 	Serial   int
 	// Downloads and uploads can probably be combined, but keeping them seperate for now
@@ -36,8 +37,9 @@ type Session struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 }
+
 func (s *Session) GetCtx() context.Context {
-	return s.ctx	
+	return s.ctx
 }
 
 type UIHooks interface {
