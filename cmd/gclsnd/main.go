@@ -32,6 +32,7 @@ func main() {
 		slog.Error("failed to setup configuration. exiting.", slog.Any("err", err))
 	}
 
+	// TODO: handle missing cmd
 	command := appConf.CliArgs["cmd"]
 	peerAlias := appConf.CliArgs["peer"]
 	// TODO: implement log level none

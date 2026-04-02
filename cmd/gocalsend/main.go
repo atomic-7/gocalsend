@@ -45,12 +45,12 @@ func main() {
 		logOpts.Level = log.DebugLevel
 		logOpts.ReportCaller = true
 	case "none":
-		log.Warn("Log level none is not implemented yet")
+		logOpts.Level = log.FatalLevel
 	case "default":
 		logOpts.Level = log.InfoLevel
 	}
 
-	if appConf.Mode == config.AppMode(config.TUI) {
+	if appConf.Mode == config.AppMode(config.TUI) && appConf.LogLevel != "none" {
 		logfile, err := os.Create("debug.log")
 		if err != nil {
 			os.Exit(1)

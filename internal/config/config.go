@@ -48,7 +48,7 @@ func Default() (*Config, error) {
 		DownloadFolder:    filepath.Join(home, "Downloads", "gocalsend"),
 		Port:              53317,
 		PeerDiscoveryTime: 4,
-		LogLevel:          "info",
+		LogLevel:          "none",
 		UseTLS:            true,
 		TLSInfo: &data.TLSPaths{
 			Dir: filepath.Join(confdir, "gocalsend"),
