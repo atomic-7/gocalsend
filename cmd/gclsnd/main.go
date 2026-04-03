@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log/slog"
 	"net"
+	"net/netip"
 	"os"
 	"time"
 
@@ -62,7 +63,7 @@ func main() {
 		Port:        appConf.Port,
 		Protocol:    "http",
 		Download:    false,
-		IP:          nil,
+		IP:          netip.MustParseAddr("127.0.0.1"),
 		Announce:    false,
 	}
 
