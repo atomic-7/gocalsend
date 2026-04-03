@@ -2,7 +2,7 @@ package data
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"sync"
 )
 
@@ -12,12 +12,12 @@ type PeerInfo struct {
 	DeviceModel string `json:"deviceModel"` // nullable -> ""
 	DeviceType  string `json:"deviceType"`
 	// mobile | desktop | web | headless | server | ""
-	Fingerprint string `json:"fingerprint"`
-	Port        int    `json:"port"`
-	Protocol    string `json:"protocol"` // http | https
-	Download    bool   `json:"download"` // API > 5.2
-	Announce    bool   `json:"announce"` // announce field is on peerinfo because it makes parsing easy, announce can just be checked as a property of the struct this way
-	IP          net.IP `json:"-"`
+	Fingerprint string     `json:"fingerprint"`
+	Port        int        `json:"port"`
+	Protocol    string     `json:"protocol"` // http | https
+	Download    bool       `json:"download"` // API > 5.2
+	Announce    bool       `json:"announce"` // announce field is on peerinfo because it makes parsing easy, announce can just be checked as a property of the struct this way
+	IP          netip.Addr `json:"-"`
 }
 
 func (pi *PeerInfo) ToPeerBody() *PeerBody {

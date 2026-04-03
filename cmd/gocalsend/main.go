@@ -4,7 +4,9 @@ import (
 	"context"
 	"flag"
 	"log/slog"
+	// I hate mixing net and netip
 	"net"
+	"net/netip"
 	"os"
 	"time"
 
@@ -61,6 +63,7 @@ func main() {
 	}
 	slog.SetDefault(slog.New(charmLogger))
 
+	localhost, _ := netip.ParseAddr("127.0.0.1")
 	node := &data.PeerInfo{
 		Alias:       appConf.Alias,
 		Version:     "2.0",
@@ -70,7 +73,7 @@ func main() {
 		Port:        appConf.Port,
 		Protocol:    "http",
 		Download:    false,
-		IP:          nil,
+		IP:          localhost,
 		Announce:    false,
 	}
 

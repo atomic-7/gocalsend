@@ -68,6 +68,7 @@ func (m Model) View() string {
 	b.WriteString("Transfers\n\n")
 	if len(m.sman.Downloads) != 0 {
 		b.WriteString("Downloads\n")
+		slog.Debug("transfer: drawing downloads")
 		for _, s := range m.sman.Downloads {
 			fmt.Fprintf(&b, " %s | %s (%d / %d)\n", s.Peer.Alias, s.SessionID, s.Remaining, len(s.Files))
 		}

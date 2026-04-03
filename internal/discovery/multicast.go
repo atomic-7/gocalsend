@@ -6,6 +6,7 @@ import (
 	"github.com/atomic-7/gocalsend/internal/data"
 	"log/slog"
 	"net"
+	"net/netip"
 	"os"
 	"strings"
 )
@@ -75,7 +76,12 @@ func MonitorMulticast(ctx context.Context, multicastAddr *net.UDPAddr, localnode
 				os.Exit(1)
 			} else {
 				info := &data.PeerInfo{}
-				info.IP = from.IP
+				ip, ok := netip.AddrFromSlice(from.IP)
+				if !ok {
+					slog.Error("failed convert ip", slog.Any("ip", from.IP))
+					continue
+				}
+				info.IP = ip
 				err = json.Unmarshal(buf[:n], info) // need to specify the number of bytes read here!
 				if err != nil {
 					slog.Debug("raw udp packet", slog.Any("buf", buf[0:400]))

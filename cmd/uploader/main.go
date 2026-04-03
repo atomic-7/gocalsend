@@ -11,12 +11,14 @@ import (
 	"github.com/atomic-7/gocalsend/internal/uploader"
 	"log/slog"
 	"net"
+	"net/netip"
 	"os"
 	"time"
 )
 
 func main() {
 
+	localhost, _ := netip.ParseAddr("127.0.0.1")
 	node := data.PeerInfo{
 		Alias:       "Dumb Uploader",
 		Version:     "2.0",
@@ -27,18 +29,23 @@ func main() {
 		Download:    false,
 		Announce:    false,
 		Port:        53320,
-		IP:          net.IPv4(192, 168, 117, 77),
+		IP:          localhost,
 	}
 
-	var peerIP int
+	var peerIP string
 	var useTLS bool
-	flag.IntVar(&peerIP, "peer", 77, "Peer in the 192.168.117.255/24 subnet")
+	flag.StringVar(&peerIP, "peer", "192.168.117.77", "IPv4 address of the peer")
 	flag.BoolVar(&useTLS, "usetls", true, "encrypt connection with tls")
 	flag.Parse()
 
 	// TODO: make this part of main localsend
 	// TODO: Figure out why tls with the reference localsend implemetations works
 	// but not between my self written instances. Could be related to how certs are handled
+
+	other, err := netip.ParseAddr(peerIP)
+	if err != nil {
+		slog.Info("failed to parse ip", slog.String("arg", peerIP), slog.Any("err", err))
+	}
 
 	peer := data.PeerInfo{
 		Alias:       "Smart Cookie",
@@ -50,7 +57,7 @@ func main() {
 		Announce:    false,
 		Port:        53317,
 		//IP:          net.IPv4(127, 0, 0, 1),
-		IP: net.IPv4(192, 168, 117, byte(peerIP)),
+		IP: other,
 	}
 	credDir := "./cert"
 	certName := "cert.pem"
@@ -84,7 +91,7 @@ func main() {
 	registratinator := discovery.NewRegistratinator(&node)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	err := discovery.AnnounceViaMulticast(&node, multicastAddr)
+	err = discovery.AnnounceViaMulticast(&node, multicastAddr)
 	if err != nil {
 		slog.Error("Could not announce via Multicast")
 		os.Exit(1)

@@ -82,7 +82,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sessionModel, cmd = m.sessionModel.Update(msg)
 		if m.sessionModel.ShouldClose() {
 			slog.Debug("session handler screen should close")
-			m.screen = m.prevScreen
+			// m.screen = m.prevScreen
+			m.screen = screens.TransfersScreen
 		}
 	case screens.PeerScreen:
 		m.peerModel, cmd = m.peerModel.Update(msg)

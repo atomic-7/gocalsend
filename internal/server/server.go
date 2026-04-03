@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/sessions"
@@ -54,10 +53,18 @@ func createPrepareUploadHandler(sman *sessions.SessionManager, peers data.PeerTr
 		logga.Debug("Files to tokens")
 		// maybe track the client to which this session belongs?
 		// TODO: use session manager to check if the user wants to accept the incoming request
+
+		remoteIP, err := netip.ParseAddrPort(r.RemoteAddr)
+		if err != nil {
+			w.WriteHeader(500)
+			slog.Error("failed to parse ip???")
+			return
+		}
 		pred := func(p *data.PeerInfo) bool {
-			return p.IP.Equal(net.IP(r.RemoteAddr))
+			return p.IP == remoteIP.Addr()
 		}
 		peer := peers.Find(pred)
+		slog.Debug("found peer in known peers", slog.Any("peer", peer))
 		sess := sman.CreateSession(peer, payload.Files)
 		if sess == nil {
 			w.WriteHeader(403)
@@ -249,10 +256,10 @@ func createRegisterHandler(localNode *data.PeerInfo, peers data.PeerTracker) htt
 		}
 		var peer data.PeerInfo
 		json.Unmarshal(buf, &peer)
-		parts := strings.Split(r.RemoteAddr, ":")
-		peer.IP = net.ParseIP(parts[0])
-		if peer.IP == nil {
-			logga.Error("failed to parse peer ip", slog.Any("host", r.Host))
+		tmpIP, err := netip.ParseAddrPort(r.RemoteAddr)
+		peer.IP = tmpIP.Addr()
+		if err != nil {
+			logga.Error("failed to parse peer ip", slog.Any("host", r.Host), slog.Any("err", err))
 			os.Exit(1)
 		}
 		// TODO: maybe reuse the registratinator here?
