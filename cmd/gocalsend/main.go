@@ -101,7 +101,7 @@ func main() {
 		node.Fingerprint = "nonononono"
 	}
 
-	registratinator := discovery.NewRegistratinator(node)
+	registratinator := discovery.NewRegistratinator(node, appConf.TLSInfo)
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -118,7 +118,7 @@ func main() {
 		runAnnouncement := announcer(ctx, node, multicastAddr, peers, registratinator)
 		eventHooks = hooks.NewHooks(p)
 		sessionManager := sessions.NewSessionManager(ctx, appConf.DownloadFolder, eventHooks)
-		model.Uploader = uploader.CreateUploader(node, sessionManager)
+		model.Uploader = uploader.CreateUploader(node, sessionManager, appConf.TLSInfo)
 		// dlManager := sessions.NewSessionManager(appConf.DownloadFolder, uihooks)
 		model.SetupSessionManagers(sessionManager)
 		go server.StartServer(ctx, node, peers, sessionManager, appConf.TLSInfo, appConf.DownloadFolder)
@@ -183,7 +183,7 @@ func main() {
 			}
 			peerMap.ReleaseMap()
 			slog.Debug("Peer", slog.Any("info", target))
-			upl := uploader.CreateUploader(node, sessionManager)
+			upl := uploader.CreateUploader(node, sessionManager, appConf.TLSInfo)
 			// passing the args will only work while cmd is passed as --cmd
 			// this will need to be changed when the command will be passed directly
 			upl.UploadFiles(target, flag.Args())

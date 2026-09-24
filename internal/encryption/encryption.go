@@ -25,12 +25,18 @@ func GetFingerPrint(paths *data.TLSPaths) (string, error) {
 		slog.Error("failed to open cert", slog.Any("error", err))
 		return "", err
 	}
+	defer file.Close()
 	contents, err := io.ReadAll(file)
 	if err != nil {
 		slog.Error("failed to read cert from disk", slog.Any("error", err))
 		return "", err
 	}
-	fingerprint := sha256.Sum256(contents)
+	block, _ := pem.Decode(contents)
+	if block == nil {
+		slog.Error("failed to decode PEM certificate for fingerprint")
+		return "", errors.New("failed to decode PEM certificate")
+	}
+	fingerprint := sha256.Sum256(block.Bytes)
 	return hex.EncodeToString(fingerprint[:]), nil
 }
 
@@ -95,7 +101,7 @@ func createCert(pk *rsa.PrivateKey, org string, dnsname string) (*Credentials, e
 	if pk != nil {
 		privateKey = pk
 	} else {
-		privateKey, err = rsa.GenerateKey(rand.Reader, 2045)
+		privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
 		if err != nil {
 			slog.Error("failed to generate private key", slog.Any("error", err))
 			os.Exit(1)
@@ -118,7 +124,7 @@ func createCert(pk *rsa.PrivateKey, org string, dnsname string) (*Credentials, e
 		// maybe consider specifying URIs here as well
 		DNSNames:  []string{dnsname}, // this might be optional
 		NotBefore: time.Now(),
-		NotAfter:  time.Now().Add(24 * time.Hour),
+		NotAfter:  time.Now().Add(30 * 24 * time.Hour),
 
 		KeyUsage: x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{

@@ -101,7 +101,7 @@ func main() {
 
 	hui := sessions.HeadlessUI{}
 	sessionManager := sessions.NewSessionManager(ctx, appConf.DownloadFolder, &hui)
-	registratinator := discovery.NewRegistratinator(node)
+	registratinator := discovery.NewRegistratinator(node, appConf.TLSInfo)
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 	runAnnouncement := func() {
 		err := discovery.AnnounceViaMulticast(node, multicastAddr)
@@ -149,7 +149,7 @@ func main() {
 		}
 		peers.ReleaseMap()
 		slog.Debug("Peer", slog.Any("info", target))
-		upl := uploader.CreateUploader(node, sessionManager)
+		upl := uploader.CreateUploader(node, sessionManager, appConf.TLSInfo)
 		upl.UploadFiles(target, flag.Args())
 	case "rcv", "rec", "recv", "receive":
 		ticker := time.NewTicker(1 * time.Minute)

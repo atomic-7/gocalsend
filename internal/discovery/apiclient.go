@@ -3,7 +3,9 @@ package discovery
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,7 +28,7 @@ type Registratinator struct {
 	tlsClient *http.Client
 }
 
-func NewRegistratinator(localNode *data.PeerInfo) *Registratinator {
+func NewRegistratinator(localNode *data.PeerInfo, tlsInfo *data.TLSPaths) *Registratinator {
 	jsonBuf, err := json.Marshal(localNode.ToPeerBody())
 	if err != nil {
 		slog.Error("error marshalling local node to json", slog.Any("error", err))
@@ -39,12 +41,36 @@ func NewRegistratinator(localNode *data.PeerInfo) *Registratinator {
 		},
 		Timeout: time.Duration(2 * time.Second), // This timeout leads to a segfault if io.ReadAll(req.body) is running
 	}
+	tlsConfig := &tls.Config{
+		//TODO: Look into writing a custom verification function to at least check against the fingerprint
+		InsecureSkipVerify: true,
+		MinVersion:         tls.VersionTLS12,
+		VerifyConnection: func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) == 0 {
+				slog.Debug("no peer certificate presented during handshake", slog.String("client", "registratinator"))
+				return nil
+			}
+			fp := sha256.Sum256(cs.PeerCertificates[0].Raw)
+			hexFp := hex.EncodeToString(fp[:])
+			slog.Debug("peer certificate fingerprint", slog.String("fingerprint", hexFp), slog.String("client", "registratinator"))
+			return nil
+		},
+	}
+	if tlsInfo != nil && tlsInfo.Cert != "" && tlsInfo.Key != "" {
+		if cert, err := tls.LoadX509KeyPair(tlsInfo.Cert, tlsInfo.Key); err == nil {
+			tlsConfig.Certificates = []tls.Certificate{cert}
+			certCopy := cert
+			tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				return &certCopy, nil
+			}
+			slog.Debug("loaded client certificate for registratinator", slog.String("cert", tlsInfo.Cert))
+		} else {
+			slog.Debug("failed to load client certificate for registratinator, continuing without client cert", slog.Any("error", err))
+		}
+	}
 	tlsClient := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				//TODO: Look into writing a custom verification function to at least check against the fingerprint
-				InsecureSkipVerify: true,
-			},
+			TLSClientConfig: tlsConfig,
 			// DisableKeepAlives:     true,
 			ResponseHeaderTimeout: time.Duration(2 * time.Second),
 		},

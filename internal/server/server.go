@@ -315,6 +315,7 @@ func StartServer(ctx context.Context, localNode *data.PeerInfo, peers data.PeerT
 			TLSConfig: &tls.Config{
 				MinVersion:         tls.VersionTLS12,
 				InsecureSkipVerify: true,
+				ClientAuth:         tls.RequestClientCert,
 			},
 		}
 		slog.Error("server error", slog.Any("error", srv.ListenAndServeTLS(tlsInfo.Cert, tlsInfo.Key)))

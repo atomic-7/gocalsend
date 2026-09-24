@@ -88,7 +88,7 @@ func main() {
 
 	multicastAddr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 167), Port: 53317}
 	peers := data.NewPeerMap()
-	registratinator := discovery.NewRegistratinator(&node)
+	registratinator := discovery.NewRegistratinator(&node, tlsInfo)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	err = discovery.AnnounceViaMulticast(&node, multicastAddr)
@@ -105,7 +105,7 @@ func main() {
 	go server.StartServer(ctx, &node, peers, sessionManager, tlsInfo, outFolder)
 	go discovery.MonitorMulticast(ctx, multicastAddr, &node, peers, registratinator)
 
-	upl := uploader.CreateUploader(&node, sessionManager)
+	upl := uploader.CreateUploader(&node, sessionManager, tlsInfo)
 
 	time.Sleep(5000)
 	upl.UploadFiles(&peer, flag.Args())

@@ -3,7 +3,9 @@ package uploader
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,7 +28,7 @@ type Uploader struct {
 }
 
 // node is the peerinfo of the local node
-func CreateUploader(node *data.PeerInfo, sman *sessions.SessionManager) *Uploader {
+func CreateUploader(node *data.PeerInfo, sman *sessions.SessionManager, tlsInfo *data.TLSPaths) *Uploader {
 	slog.Debug("Creating client")
 
 	// TODO: Look into cloning the default transport
@@ -37,11 +39,35 @@ func CreateUploader(node *data.PeerInfo, sman *sessions.SessionManager) *Uploade
 		},
 		Timeout: time.Duration(120 * time.Second),
 	}
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+		MinVersion:         tls.VersionTLS12,
+		VerifyConnection: func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) == 0 {
+				slog.Debug("no peer certificate presented during handshake", slog.String("client", "uploader"))
+				return nil
+			}
+			fp := sha256.Sum256(cs.PeerCertificates[0].Raw)
+			hexFp := hex.EncodeToString(fp[:])
+			slog.Debug("peer certificate fingerprint", slog.String("fingerprint", hexFp), slog.String("client", "uploader"))
+			return nil
+		},
+	}
+	if tlsInfo != nil && tlsInfo.Cert != "" && tlsInfo.Key != "" {
+		if cert, err := tls.LoadX509KeyPair(tlsInfo.Cert, tlsInfo.Key); err == nil {
+			tlsConfig.Certificates = []tls.Certificate{cert}
+			certCopy := cert
+			tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				return &certCopy, nil
+			}
+			slog.Debug("loaded client certificate for uploader", slog.String("cert", tlsInfo.Cert))
+		} else {
+			slog.Debug("failed to load client certificate for uploader, continuing without client cert", slog.Any("error", err))
+		}
+	}
 	tlsclient := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
+			TLSClientConfig: tlsConfig,
 			ResponseHeaderTimeout: time.Duration(60 * time.Second),
 		},
 		Timeout: time.Duration(120 * time.Second),
