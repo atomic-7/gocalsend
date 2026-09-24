@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +13,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/atomic-7/gocalsend/internal/data"
 	"github.com/atomic-7/gocalsend/internal/sessions"
@@ -121,6 +124,7 @@ func createUploadHandler(sman *sessions.SessionManager) http.Handler {
 		// 400 missing parameters
 		// 403 invalid token or ip addr
 		// 409 blocked by another session
+		// 422 checksum mismatch
 		// 500 Server error
 		r.ParseForm()
 		// TODO: Check for malicious url parameters
@@ -179,21 +183,36 @@ func createUploadHandler(sman *sessions.SessionManager) http.Handler {
 			w.WriteHeader(500)
 			return
 		}
-		defer osFile.Close()
 
-		_, err = osFile.ReadFrom(r.Body) // could probably also use io.Copy
+		// Stream while hashing if sha256 is provided, to verify checksum per protocol v2.2.
+		hash := sha256.New()
+		tee := io.TeeReader(r.Body, hash)
+		_, err = io.Copy(osFile, tee)
 		if err != nil {
 			logga.Error("failed to write to file", slog.String("file", file.FileName), slog.Any("error", err))
+			osFile.Close()
+			os.Remove(destination)
 			w.WriteHeader(500)
 			return
 		}
 
-		// Not a deferred close to be able to catch errors that might happen when closing a file after writing
+		// Ensure file is closed before verification to flush.
 		err = osFile.Close()
 		if err != nil {
 			logga.Error("failed to close file", slog.String("file", file.FileName), slog.Any("error", err))
 			w.WriteHeader(500)
 			return
+		}
+
+		// Verify sha256 if provided by sender (optional, but must return 422 on mismatch).
+		if file.Sha256 != "" {
+			computed := hex.EncodeToString(hash.Sum(nil))
+			if !strings.EqualFold(computed, file.Sha256) {
+				logga.Error("checksum mismatch", slog.String("file", file.FileName), slog.String("expected", file.Sha256), slog.String("got", computed))
+				os.Remove(destination)
+				w.WriteHeader(422)
+				return
+			}
 		}
 
 		logga.Info("file downloaded", slog.String("sessionId", sess.SessionID), slog.String("file", file.FileName), slog.String("path", path))

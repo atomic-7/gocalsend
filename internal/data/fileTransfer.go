@@ -13,9 +13,9 @@ type File struct {
 	ID          string    `json:"id"`
 	FileName    string    `json:"fileName"`
 	Size        int64     `json:"size"`
-	FileType    string    `json:"fileType"`
-	Sha256      string    `json:"sha256"`   // nullable, look into omitempty
-	Preview     string    `json:"preview"`  // nullable
+	FileType    string    `json:"fileType,omitempty"`
+	Sha256      string    `json:"sha256,omitempty"`
+	Preview     string    `json:"preview,omitempty"`
 	Metadata    *MetaData `json:"metadata"` // nullable
 	Done        bool      `json:"-"`
 	Token       string    `json:"-"`

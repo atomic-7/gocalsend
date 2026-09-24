@@ -11,9 +11,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/atomic-7/gocalsend/internal/data"
@@ -134,10 +136,33 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 		}
 		fileName := info.Name()
 		fileID := cl.genID(fileName)
+		// Determine MIME type via extension, fallback to octet-stream.
+		fileType := mime.TypeByExtension(filepath.Ext(path))
+		if fileType == "" {
+			fileType = "application/octet-stream"
+		}
+		// Compute sha256 by streaming file (double-read is necessary per protocol).
+		var shaHex string
+		func() {
+			f, err := os.Open(path)
+			if err != nil {
+				slog.Error("Failed to open file for hashing", slog.String("file", path), slog.Any("error", err))
+				return
+			}
+			defer f.Close()
+			h := sha256.New()
+			if _, err := io.Copy(h, f); err != nil {
+				slog.Error("Failed to hash file", slog.String("file", path), slog.Any("error", err))
+				return
+			}
+			shaHex = hex.EncodeToString(h.Sum(nil))
+		}()
 		idmap[fileID] = &data.File{
-			ID:          cl.genID(fileName),
+			ID:          fileID,
 			FileName:    fileName,
 			Size:        info.Size(),
+			FileType:    fileType,
+			Sha256:      shaHex,
 			Destination: path,
 			Metadata: &data.MetaData{
 				Modified: info.ModTime(),
@@ -184,6 +209,8 @@ func (cl *Uploader) prepareUpload(peer *data.PeerInfo, filePaths []string) (stri
 			return "", errors.New("Rejected")
 		case 409:
 			return "", errors.New("Blocked by another session")
+		case 422:
+			return "", errors.New("Checksum mismatch (sha256)")
 		case 429:
 			return "", errors.New("Too many requests")
 		case 500:
@@ -256,6 +283,8 @@ func (cl *Uploader) singleUpload(ctx context.Context, peer *data.PeerInfo, sessI
 			return errors.New("Invalid token or ip address")
 		case 409:
 			return errors.New("Blocked by another session")
+		case 422:
+			return errors.New("Checksum mismatch (sha256)")
 		case 500:
 			return errors.New("Server error")
 		default:
